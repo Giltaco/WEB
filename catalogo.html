@@ -272,7 +272,7 @@ header {
   stroke: currentColor; 
 }
 
-.cart-badge, .wishlist-badge {
+.cart-badge {
   position: absolute; 
   top: 4px; 
   right: 4px; 
@@ -290,7 +290,7 @@ header {
   font-family: var(--font-body);
 }
 
-.cart-badge.visible, .wishlist-badge.visible { 
+.cart-badge.visible { 
   display: flex; 
 }
 
@@ -583,8 +583,7 @@ header {
   justify-content: center; 
   color: var(--text-sec);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06); 
-  cursor: pointer;
-  transition: all 0.3s ease;
+  cursor: pointer; 
 }
 
 .btn-wishlist-float svg { 
@@ -593,12 +592,6 @@ header {
   stroke-width: 1.5; 
   fill: none; 
   stroke: currentColor; 
-  transition: all 0.3s ease;
-}
-
-.btn-wishlist-float.active svg {
-  fill: var(--primary);
-  stroke: var(--primary);
 }
 
 .card-add-btn {
@@ -1195,37 +1188,6 @@ header {
   max-width: 360px; 
 }
 
-.newsletter-form {
-  display: flex;
-  margin-top: 12px;
-  gap: 8px;
-  max-width: 360px;
-}
-
-.newsletter-form input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-btn);
-  font-size: 13px;
-  outline: none;
-}
-
-.newsletter-form button {
-  padding: 0 16px;
-  background: var(--text-main);
-  color: white;
-  border: none;
-  border-radius: var(--radius-btn);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.newsletter-form button:hover {
-  background: var(--primary);
-}
-
 .footer-col-title { 
   font-size: 11px; 
   letter-spacing: 2px; 
@@ -1364,7 +1326,7 @@ header {
     display: flex;
   }
   .header-left {
-    display: none;
+    display: none; /* Se oculta la barra fija en el header para móviles y pasa a ser más limpia */
   }
   .header-left.mobile-search-active {
     display: flex;
@@ -1380,6 +1342,7 @@ header {
     flex: initial;
   }
   
+  /* Grilla responsive de productos */
   .catalog-section {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
@@ -1400,6 +1363,7 @@ header {
     min-height: 38px;
   }
   
+  /* Layout Modal Móvil (Bottom Sheet) */
   .pd-overlay {
     padding: 0;
     align-items: flex-end;
@@ -1510,7 +1474,6 @@ const TIENDA = {
     </button>
     <button class="icon-btn" title="Favoritos">
       <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-      <span class="wishlist-badge" id="wishlistBadge">0</span>
     </button>
     <button class="icon-btn" onclick="openCart()" title="Bolsa de compras">
       <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
@@ -1545,58 +1508,34 @@ const TIENDA = {
   </main>
 </div>
 
-<!-- Footer Editado -->
+<!-- Footer -->
 <footer class="site-footer">
   <div class="footer-main">
     <div class="footer-brand">
       <div class="logo-name" style="font-family:var(--font-heading); font-size:28px;">Neli's Make'up</div>
       <p>Redefiniendo el lujo en cosméticos. Conectando la sofisticación con tu rutina diaria de belleza.</p>
-      <div class="footer-col-title" style="margin-top: 24px;">Newsletter para suscripción</div>
-      <form class="newsletter-form" onsubmit="event.preventDefault(); alert('¡Gracias por suscribirte!');">
-        <input type="email" placeholder="Tu correo electrónico" required>
-        <button type="submit">Suscribir</button>
-      </form>
     </div>
-    
     <div>
-      <div class="footer-col-title">Información</div>
-      <ul class="footer-links">
-        <li><a href="#">Sobre Neli's Make'up</a></li>
-        <li><a href="#">Envíos a todo México</a></li>
-        <li><a href="#">Métodos de pago aceptados</a></li>
-        <li><a href="#">Términos y condiciones</a></li>
-        <li><a href="#">Aviso de privacidad</a></li>
-      </ul>
-    </div>
-    
-    <div>
-      <div class="footer-col-title">Categorías principales</div>
+      <div class="footer-col-title">Explorar</div>
       <ul class="footer-links">
         <li><a href="#">Maquillaje</a></li>
         <li><a href="#">Cuidado de la piel</a></li>
         <li><a href="#">Fragancias</a></li>
         <li><a href="#">Novedades</a></li>
       </ul>
-      <div class="footer-col-title" style="margin-top: 24px;">Redes sociales</div>
-      <ul class="footer-links">
-        <li><a href="#">Instagram</a></li>
-        <li><a href="#">Facebook</a></li>
-        <li><a href="#">TikTok</a></li>
-      </ul>
     </div>
-
     <div>
-      <div class="footer-col-title">Atención al cliente</div>
+      <div class="footer-col-title">Asistencia</div>
       <ul class="footer-links">
         <li><a id="footerWaLink" href="#" target="_blank">Contactar Asesor</a></li>
+        <li><a href="#">Envíos y devoluciones</a></li>
         <li><a href="#">Preguntas frecuentes</a></li>
-        <li><a href="#">Política de devoluciones</a></li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
     <div>&copy; 2026 Neli's Make'up. Todos los derechos reservados.</div>
-    <div class="dev-signature">Desarrollado por Ing. Librado ❤️</div>
+    <div class="dev-signature">Desarrollado por Ing. Librado</div>
   </div>
 </footer>
 
@@ -1644,16 +1583,8 @@ const TIENDA = {
 </div>
 
 <script>
-const TIENDA = {
-  nombre: "Neli's Make'up", 
-  slogan: 'Resalta lo mejor de ti.',
-  whatsapp: '528771392697', 
-  mensajeBase: "Hola! Vi el catálogo de Neli's Make'up y me interesa: "
-};
-
 let CATEGORIAS = [], PRODUCTOS = [], sb = null;
 let cart = [];
-let wishlist = [];
 let pdCurrentSlide = 0, pdImages = [], pdCurrentProd = null;
 let pdSelectedVariante = null;
 
@@ -1680,53 +1611,6 @@ function toggleMobileSearch() {
   if(hl.classList.contains('mobile-search-active')) {
     document.getElementById('searchInput').focus();
   }
-}
-
-// Lógica de Wishlist (Favoritos)
-function saveWishlistToStorage() {
-  try { localStorage.setItem('ff_wishlist', JSON.stringify(wishlist)); } catch(e) {}
-}
-
-function loadWishlistFromStorage() {
-  try {
-    const raw = localStorage.getItem('ff_wishlist');
-    if (raw) wishlist = JSON.parse(raw);
-  } catch(e) {
-    localStorage.removeItem('ff_wishlist');
-  }
-  renderWishlistUI();
-}
-
-function toggleWishlist(pid, event) {
-  if (event) event.stopPropagation();
-  const idx = wishlist.indexOf(pid);
-  if (idx > -1) {
-    wishlist.splice(idx, 1);
-  } else {
-    wishlist.push(pid);
-  }
-  saveWishlistToStorage();
-  renderWishlistUI();
-}
-
-function renderWishlistUI() {
-  const badge = document.getElementById('wishlistBadge');
-  if (badge) {
-    badge.textContent = wishlist.length;
-    badge.classList.toggle('visible', wishlist.length > 0);
-  }
-  
-  document.querySelectorAll('.card').forEach(card => {
-    const pid = card.getAttribute('data-pid');
-    const btn = card.querySelector('.btn-wishlist-float');
-    if (btn) {
-      if (wishlist.includes(pid)) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    }
-  });
 }
 
 function saveCartToStorage() { 
@@ -1818,7 +1702,6 @@ async function init() {
     CATEGORIAS = catsRes.data || []; 
     PRODUCTOS = prodsRes.data || [];
     
-    loadWishlistFromStorage();
     buildUI(); 
     loadCartFromStorage();
   } catch(e) { 
@@ -1862,14 +1745,10 @@ function buildUI() {
     catProds.forEach((p) => grid.appendChild(buildCard(p))); 
     root.appendChild(grid);
   });
-  
-  // Renderizar la interfaz de wishlist una vez creadas las tarjetas
-  renderWishlistUI();
 }
 
 function buildCard(p) {
   const isAgotado = hasVariantes(p) ? p.variantes.every(v => v.stock === 0) : p.agotado === true;
-  const isFav = wishlist.includes(p.id) ? 'active' : '';
   const card = document.createElement('div');
   
   card.className = 'card' + (isAgotado ? ' agotado' : ''); 
@@ -1888,7 +1767,7 @@ function buildCard(p) {
   card.innerHTML = `
     <div class="card-img-wrap">
       ${imgHtml}
-      <button class="btn-wishlist-float ${isFav}" onclick="toggleWishlist('${p.id}', event)" title="Guardar en favoritos">
+      <button class="btn-wishlist-float" onclick="event.stopPropagation()" title="Guardar en favoritos">
         <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
       </button>
     </div>
