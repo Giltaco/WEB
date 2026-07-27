@@ -19,7 +19,6 @@
 }
 
 :root {
-  /* Paleta Neli's Make'up (Mantenida premium/femenina) */
   --primary: #E6509A;
   --primary-hover: #D63E85;
   --secondary: #F8DDEA;
@@ -29,18 +28,15 @@
   --text-main: #1B1B1B;
   --text-sec: #666666;
   --border-color: #EFE6EC;
-  --success: #25D366; /* Color WhatsApp */
+  --success: #25D366;
   --offer: #FF4D6D;
 
-  /* Tipografía */
   --font-heading: 'Playfair Display', serif;
   --font-body: 'Inter', sans-serif;
 
-  /* Espaciados y Radios */
   --radius-card: 18px;
   --radius-btn: 50px;
   
-  /* Sombras Premium */
   --shadow-soft: 0 4px 24px rgba(27, 27, 27, 0.03);
   --shadow-hover: 0 12px 40px rgba(27, 27, 27, 0.08);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.08);
@@ -405,11 +401,6 @@ header {
   color: var(--text-main); 
 }
 
-.section-heading .section-count { 
-  font-size: 12px; 
-  color: var(--text-sec); 
-}
-
 /* ══════════════════════════════════════════
    TARJETAS DE PRODUCTO
 ══════════════════════════════════════════ */
@@ -463,7 +454,6 @@ header {
   transform: scale(1.05); 
 }
 
-/* Wishlist flotante */
 .btn-wishlist-float {
   position: absolute; 
   top: 16px; 
@@ -496,7 +486,6 @@ header {
   stroke: currentColor; 
 }
 
-/* Botón flotante agregar */
 .card-add-btn {
   position: absolute; 
   bottom: -50px; 
@@ -755,7 +744,6 @@ header {
   font-weight: 300; 
 }
 
-/* Variantes/Tonos */
 .pd-tonos-label { 
   font-size: 11px; 
   letter-spacing: 2px; 
@@ -1021,6 +1009,25 @@ header {
   margin-bottom: 24px; 
 }
 
+.cart-form-field { 
+  margin-bottom: 16px; 
+}
+
+.cart-form-field input { 
+  width: 100%; 
+  padding: 16px 20px; 
+  border: 1px solid var(--border-color); 
+  border-radius: 8px;
+  font-family: var(--font-body); 
+  font-size: 14px; 
+  outline: none; 
+  transition: border-color 0.3s;
+}
+
+.cart-form-field input:focus { 
+  border-color: var(--text-main); 
+}
+
 .btn-checkout { 
   width: 100%; 
   padding: 18px; 
@@ -1039,25 +1046,6 @@ header {
 
 .btn-checkout:hover { 
   background: var(--primary); 
-}
-
-.cart-form-field { 
-  margin-bottom: 16px; 
-}
-
-.cart-form-field input { 
-  width: 100%; 
-  padding: 16px 20px; 
-  border: 1px solid var(--border-color); 
-  border-radius: 8px;
-  font-family: var(--font-body); 
-  font-size: 14px; 
-  outline: none; 
-  transition: border-color 0.3s;
-}
-
-.cart-form-field input:focus { 
-  border-color: var(--text-main); 
 }
 
 /* ══════════════════════════════════════════
@@ -1182,7 +1170,6 @@ header {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive adjustments */
 @media (max-width: 1024px) {
   .hero { flex-direction: column; text-align: center; padding: 40px 2rem; }
   .hero-content { max-width: 100%; }
@@ -1203,7 +1190,6 @@ header {
 <body>
 
 <script>
-// Mantenemos las credenciales y configuraciones originales intactas.
 const SUPABASE_URL = 'https://lboxwllgypubptserlxd.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxib3h3bGxneXB1YnB0c2VybHhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5OTQ3NTcsImV4cCI6MjEwMDU3MDc1N30.mLnshO-OB4kvcrSroDcFHBQ7jJhGokTzyikYMI4TsIE';
 const TIENDA = {
@@ -1219,9 +1205,8 @@ const TIENDA = {
   <div class="loading-sub">Premium Cosmetics</div>
   <div class="loading-bar"><div class="loading-bar-fill"></div></div>
 </div>
-<div id="offlineBanner" style="display:none; text-align:center; padding:10px; background:#fbeaea; color:#c43d3d; font-size:12px;"></div>
 
-<!-- Header Rediseñado -->
+<!-- Header -->
 <header>
   <div class="header-left">
     <div class="search-wrap">
@@ -1256,26 +1241,21 @@ const TIENDA = {
   </div>
 </section>
 
-<!-- Layout Catálogo con Sidebar -->
+<!-- Catálogo con Sidebar -->
 <div class="catalog-container">
   <aside class="sidebar-filters">
     <h3 class="filter-title">Colecciones</h3>
     <div class="filters-bar" id="filtersBar">
       <button class="filter-pill active" data-cat="todos" onclick="filtrar('todos', this)">Todas las colecciones</button>
-      <!-- JS insertará aquí -->
     </div>
   </aside>
 
   <main class="catalog-main">
-    <div id="searchResults"></div>
     <div id="catalogoRoot"></div>
   </main>
 </div>
 
-<!-- Nav invisible para no romper funcionalidad JS si la busca -->
-<nav id="mainNav" style="display:none;"></nav>
-
-<!-- Footer Premium -->
+<!-- Footer -->
 <footer class="site-footer">
   <div class="footer-main">
     <div class="footer-brand">
@@ -1350,9 +1330,7 @@ const TIENDA = {
 </div>
 
 <script>
-/* ══ STATE ══ */
 let CATEGORIAS = [], PRODUCTOS = [], sb = null;
-const tonosSeleccionados = {};
 let cart = [];
 let pdCurrentSlide = 0, pdImages = [], pdCurrentProd = null;
 let pdSelectedVariante = null;
@@ -1385,34 +1363,22 @@ function loadCartFromStorage() {
   try {
     const raw = localStorage.getItem('ff_cart'); 
     if (!raw) return;
-    
     const saved = JSON.parse(raw); 
     cart = [];
-    
     saved.forEach(item => {
       const prod = PRODUCTOS.find(p => p.id === item.prodId); 
       if (!prod) return;
-      
       const variante = item.varId ? (prod.variantes || []).find(v => v.id === item.varId) || null : null;
       if (variante && variante.stock === 0) return; 
       if (!variante && prod.agotado) return;
-      
-      cart.push({ 
-        key: item.key, 
-        prod, 
-        qty: item.qty, 
-        variante, 
-        tono: item.tono 
-      });
+      cart.push({ key: item.key, prod, qty: item.qty, variante, tono: item.tono });
     }); 
-    
     renderCart();
   } catch(e) { 
     localStorage.removeItem('ff_cart'); 
   }
 }
 
-/* ══ VARIANTES ══ */
 function buildVariantSelector(p) {
   const vv = p.variantes;
   const thumbs = vv.map(v => `
@@ -1423,29 +1389,23 @@ function buildVariantSelector(p) {
       <span class="pd-var-thumb-name">${esc(v.nombre)}</span>
     </div>`
   ).join('');
-  
   return `<div><div class="pd-tonos-label" id="pdVarInfo">Selecciona un Tono</div><div class="pd-var-thumbs" id="pdVarThumbs">${thumbs}</div></div>`;
 }
 
 function selectVariante(pid, varId) {
   const p = PRODUCTOS.find(x => x.id === pid); 
   if (!p) return;
-  
   const v = (p.variantes || []).find(x => x.id === varId); 
   if (!v) return;
-  
   pdSelectedVariante = v;
-  
   if (v.imagen_url) { 
     const img = document.getElementById('pdMainImg'); 
     if (img) img.src = v.imagen_url; 
   }
-  
   const info = document.getElementById('pdVarInfo');
   if (info) {
     info.innerHTML = `Tono: <strong>${esc(v.nombre)}</strong> ${v.stock === 0 ? '(Agotado)' : ''}`;
   }
-  
   const btn = document.getElementById(`pdCartBtn-${pid}`);
   if (btn) { 
     if (v.stock === 0) { 
@@ -1456,20 +1416,16 @@ function selectVariante(pid, varId) {
       btn.textContent = 'Añadir a la bolsa'; 
     } 
   }
-  
   document.querySelectorAll('#pdVarThumbs .pd-var-thumb').forEach(t => t.classList.remove('selected'));
   document.querySelector(`#pdVarThumbs [data-varid="${varId}"]`)?.classList.add('selected');
 }
 
-/* ══ INIT ══ */
 async function init() {
-  // Enlaces de WhatsApp configurados desde TIENDA
   document.getElementById('footerWaLink').href = waLink(TIENDA.mensajeBase);
   document.getElementById('floatingWaBtn').href = waLink("Hola! Me gustaría hacer una consulta en Neli's Make'up: ");
 
   try {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    
     const catsRes = await sb.from('categorias').select('*').order('orden');
     const prodsRes = await sb.from('productos').select('*, categorias(id,nombre,emoji,slug)').eq('activo', true).order('created_at', { ascending: false });
     
@@ -1491,21 +1447,23 @@ async function init() {
   }, 500);
 }
 
-/* ══ BUILD UI ══ */
 function buildUI() {
   const fb = document.getElementById('filtersBar');
   const root = document.getElementById('catalogoRoot');
+  root.innerHTML = '';
   
   CATEGORIAS.forEach(cat => {
     const catProds = PRODUCTOS.filter(p => p.categoria_id === cat.id);
     if (!catProds.length) return;
     
-    const pill = document.createElement('button'); 
-    pill.className = 'filter-pill'; 
-    pill.textContent = cat.nombre; 
-    pill.dataset.cat = cat.id; 
-    pill.onclick = () => filtrar(cat.id, pill); 
-    fb.appendChild(pill);
+    if(!document.querySelector(`[data-cat="${cat.id}"].filter-pill`)) {
+      const pill = document.createElement('button'); 
+      pill.className = 'filter-pill'; 
+      pill.textContent = cat.nombre; 
+      pill.dataset.cat = cat.id; 
+      pill.onclick = () => filtrar(cat.id, pill); 
+      fb.appendChild(pill);
+    }
     
     const heading = document.createElement('div'); 
     heading.className = 'section-heading'; 
@@ -1529,6 +1487,7 @@ function buildCard(p) {
   card.className = 'card' + (isAgotado ? ' agotado' : ''); 
   card.setAttribute('data-cat', p.categoria_id || ''); 
   card.setAttribute('data-pid', p.id);
+  card.setAttribute('data-search', (p.nombre + ' ' + (p.marca || '') + ' ' + (p.descripcion || '')).toLowerCase());
   
   const imgUrl = p.imagen_url || p.imagenes_extra?.[0] || '';
   const imgHtml = imgUrl ? `<img src="${esc(imgUrl)}" loading="lazy">` : `<div style="width:100%;height:100%;background:#eee;"></div>`;
@@ -1572,22 +1531,47 @@ function filtrar(catId, btnEl) {
   });
 }
 
+/* ══ BUSCADOR RESTAURADO ══ */
 function handleSearch(val) {
-  // Lógica de búsqueda original si es necesaria
+  const query = val.toLowerCase().trim();
+  const cards = document.querySelectorAll('.card');
+  const sections = document.querySelectorAll('.section-heading');
+  const grids = document.querySelectorAll('.catalog-section');
+
+  if (!query) {
+    // Restaurar vista por categoría activa actual
+    const activePill = document.querySelector('.filter-pill.active');
+    const catId = activePill ? activePill.dataset.cat : 'todos';
+    filtrar(catId, activePill);
+    cards.forEach(c => c.style.display = 'flex');
+    return;
+  }
+
+  // Ocultar filtro activo de categoría visualmente para evitar confusión
+  document.querySelectorAll('.filter-pill').forEach(el => el.classList.remove('active'));
+
+  cards.forEach(card => {
+    const text = card.getAttribute('data-search') || '';
+    if (text.includes(query)) {
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  // Mostrar todas las secciones/grids para que se vean los resultados encontrados en cualquier categoría
+  sections.forEach(s => s.style.display = 'flex');
+  grids.forEach(g => g.style.display = 'grid');
 }
 
-/* ══ PRODUCT DETAIL ══ */
 function openPD(pid) {
   const p = PRODUCTOS.find(x => x.id === pid); 
   if (!p) return;
-  
   pdCurrentProd = p; 
   pdSelectedVariante = null;
   pdImages = (p.imagenes_extra?.length) ? p.imagenes_extra : (p.imagen_url ? [p.imagen_url] : []);
-  
   renderPDGallery(p); 
   renderPDInfo(p);
-  
   document.getElementById('pdOverlay').classList.add('open');
 }
 
@@ -1598,7 +1582,6 @@ function closePD() {
 function renderPDGallery(p) {
   const wrap = document.getElementById('pdMainImgWrap'); 
   const thumbs = document.getElementById('pdThumbs');
-  
   if (pdImages.length > 0) {
     wrap.innerHTML = `<img id="pdMainImg" src="${pdImages[0]}">`;
     if(pdImages.length > 1){
@@ -1624,7 +1607,6 @@ function renderPDInfo(p) {
     : `<div class="pd-price-block"><span class="pd-price">$${precio.toLocaleString('es-MX')} MXN</span></div>`;
     
   let tonosHtml = hasVariantes(p) ? buildVariantSelector(p) : '';
-  
   let actionsHtml = isAgotado 
     ? `<button class="pd-btn-cart" disabled>Agotado</button>` 
     : `<button class="pd-btn-cart" id="pdCartBtn-${p.id}" ${hasVariantes(p)?'disabled':''} onclick="addToCartFromPD('${p.id}')">${hasVariantes(p)?'Seleccionar Tono':'Añadir a la bolsa'}</button>`;
@@ -1644,22 +1626,14 @@ function renderPDInfo(p) {
 function addToCartFromPD(pid) {
   const prod = PRODUCTOS.find(p => p.id === pid); 
   if (!prod) return;
-  
   let key = hasVariantes(prod) ? pid + ':' + pdSelectedVariante.id : pid;
   let exist = cart.find(i => i.key === key);
   
   if (exist) {
     exist.qty++; 
   } else {
-    cart.push({ 
-      key, 
-      prod, 
-      qty: 1, 
-      variante: hasVariantes(prod) ? pdSelectedVariante : null, 
-      tono: null 
-    });
+    cart.push({ key, prod, qty: 1, variante: hasVariantes(prod) ? pdSelectedVariante : null, tono: null });
   }
-  
   renderCart(); 
   saveCartToStorage();
   
@@ -1670,7 +1644,6 @@ function addToCartFromPD(pid) {
   }
 }
 
-/* ══ CART RENDER ══ */
 function removeFromCart(key) { 
   cart = cart.filter(i => i.key !== key); 
   renderCart(); 
@@ -1705,7 +1678,6 @@ function renderCart() {
   document.getElementById('cartTotal').textContent = `$${total.toLocaleString('es-MX')}`;
   
   const wrap = document.getElementById('cartItems');
-  
   if (!cart.length) { 
     wrap.innerHTML = `<div style="text-align:center;color:var(--text-sec);margin-top:40px;">Tu bolsa está vacía.</div>`; 
     return; 
@@ -1731,17 +1703,14 @@ function renderCart() {
 
 function checkout() {
   if (!cart.length) return alert('El carrito está vacío.');
-  
   const n = document.getElementById('clientName').value; 
   const p = document.getElementById('clientPhone').value;
-  
   if(!n || !p) return alert('Por favor ingresa tu nombre y teléfono.');
   
   let msg = `Hola Neli's Make'up, soy ${n}. Me interesa mi orden:\n\n`;
   cart.forEach(i => { 
     msg += `- ${i.qty}x ${i.prod.nombre} ${i.variante ? '('+i.variante.nombre+')' : ''}\n`; 
   });
-  
   window.open(waLink(msg), '_blank');
 }
 
