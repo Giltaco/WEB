@@ -718,8 +718,20 @@
             <div class="settings-val"><input type="text" id="cfg_nombre" placeholder="Neli's Make'Up"></div>
           </div>
           <div class="settings-row">
+            <div><div class="settings-key">Slogan</div><div class="settings-desc">Se muestra en el encabezado y pie del catálogo</div></div>
+            <div class="settings-val"><input type="text" id="cfg_slogan" placeholder="Resalta lo mejor de ti."></div>
+          </div>
+          <div class="settings-row">
             <div><div class="settings-key">WhatsApp de contacto</div><div class="settings-desc">Número con código de país (ej: 521XXXXXXXXXX)</div></div>
             <div class="settings-val"><input type="text" id="cfg_whatsapp" placeholder="521XXXXXXXXXX"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-key">Correo de contacto</div><div class="settings-desc">Se muestra en el pie del catálogo</div></div>
+            <div class="settings-val"><input type="email" id="cfg_correo" placeholder="contacto@nelismakeup.com"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-key">Dirección</div><div class="settings-desc">Se muestra en el pie del catálogo</div></div>
+            <div class="settings-val"><input type="text" id="cfg_direccion" placeholder="Monterrey, NL"></div>
           </div>
           <div class="settings-row">
             <div><div class="settings-key">Moneda</div><div class="settings-desc">Moneda para mostrar precios</div></div>
@@ -730,6 +742,23 @@
                 <option value="COP">COP — Peso colombiano</option>
               </select>
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-head"><div class="settings-section-title">Redes sociales</div></div>
+        <div class="settings-section-body">
+          <div class="settings-row">
+            <div><div class="settings-key">Instagram</div><div class="settings-desc">URL completa del perfil</div></div>
+            <div class="settings-val"><input type="text" id="cfg_instagram" placeholder="https://instagram.com/tu_negocio"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-key">Facebook</div><div class="settings-desc">URL completa de la página</div></div>
+            <div class="settings-val"><input type="text" id="cfg_facebook" placeholder="https://facebook.com/tu_negocio"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-key">TikTok</div><div class="settings-desc">URL completa del perfil</div></div>
+            <div class="settings-val"><input type="text" id="cfg_tiktok" placeholder="https://tiktok.com/@tu_negocio"></div>
           </div>
         </div>
       </div>
@@ -971,7 +1000,13 @@
     auditLogs: [],
     settings: {
       nombre: "Neli's Make'Up",
+      slogan: "Resalta lo mejor de ti.",
       whatsapp: "521XXXXXXXXXX",
+      correo: "",
+      direccion: "",
+      instagram: "",
+      facebook: "",
+      tiktok: "",
       moneda: "MXN",
       perPage: 20,
       stockThreshold: 3
@@ -1044,7 +1079,13 @@
 
   function applySettingsToUI() {
     if (document.getElementById('cfg_nombre')) document.getElementById('cfg_nombre').value = state.settings.nombre;
+    if (document.getElementById('cfg_slogan')) document.getElementById('cfg_slogan').value = state.settings.slogan || '';
     if (document.getElementById('cfg_whatsapp')) document.getElementById('cfg_whatsapp').value = state.settings.whatsapp;
+    if (document.getElementById('cfg_correo')) document.getElementById('cfg_correo').value = state.settings.correo || '';
+    if (document.getElementById('cfg_direccion')) document.getElementById('cfg_direccion').value = state.settings.direccion || '';
+    if (document.getElementById('cfg_instagram')) document.getElementById('cfg_instagram').value = state.settings.instagram || '';
+    if (document.getElementById('cfg_facebook')) document.getElementById('cfg_facebook').value = state.settings.facebook || '';
+    if (document.getElementById('cfg_tiktok')) document.getElementById('cfg_tiktok').value = state.settings.tiktok || '';
     if (document.getElementById('cfg_moneda')) document.getElementById('cfg_moneda').value = state.settings.moneda;
     if (document.getElementById('cfg_perPage')) document.getElementById('cfg_perPage').value = state.settings.perPage;
     if (document.getElementById('cfg_stockThreshold')) document.getElementById('cfg_stockThreshold').value = state.settings.stockThreshold;
@@ -1260,6 +1301,22 @@
 
         const { data: pedData } = await supabaseClient.from('pedidos').select('*');
         if (pedData && pedData.length > 0) state.pedidos = pedData;
+
+        // Configuración funcional de la tienda (fila única, id=1)
+        const { data: cfgData } = await supabaseClient.from('tienda_config').select('*').eq('id', 1).single();
+        if (cfgData) {
+          state.settings.nombre = cfgData.nombre || state.settings.nombre;
+          state.settings.slogan = cfgData.slogan || state.settings.slogan;
+          state.settings.whatsapp = cfgData.whatsapp || state.settings.whatsapp;
+          state.settings.correo = cfgData.correo || '';
+          state.settings.direccion = cfgData.direccion || '';
+          state.settings.instagram = cfgData.instagram || '';
+          state.settings.facebook = cfgData.facebook || '';
+          state.settings.tiktok = cfgData.tiktok || '';
+          state.settings.moneda = cfgData.moneda || state.settings.moneda;
+          saveLocalState();
+          applySettingsToUI();
+        }
       } catch(e) { console.warn('Supabase fetch error, using local state:', e); }
     } else {
       // Cargar de localStorage si existe
@@ -2332,9 +2389,15 @@
   }
 
   /* ════ CONFIGURACIÓN ════ */
-  function saveSettings() {
+  async function saveSettings() {
     state.settings.nombre = document.getElementById('cfg_nombre').value.trim() || "Neli's Make'Up";
+    state.settings.slogan = document.getElementById('cfg_slogan').value.trim() || "";
     state.settings.whatsapp = document.getElementById('cfg_whatsapp').value.trim() || "";
+    state.settings.correo = document.getElementById('cfg_correo').value.trim() || "";
+    state.settings.direccion = document.getElementById('cfg_direccion').value.trim() || "";
+    state.settings.instagram = document.getElementById('cfg_instagram').value.trim() || "";
+    state.settings.facebook = document.getElementById('cfg_facebook').value.trim() || "";
+    state.settings.tiktok = document.getElementById('cfg_tiktok').value.trim() || "";
     state.settings.moneda = document.getElementById('cfg_moneda').value;
     state.settings.perPage = parseInt(document.getElementById('cfg_perPage').value) || 20;
     state.settings.stockThreshold = parseInt(document.getElementById('cfg_stockThreshold').value) || 3;
@@ -2342,6 +2405,27 @@
     saveLocalState();
     logAudit('configuracion', 'success', 'Parámetros del sistema actualizados');
     showToast('Configuración guardada correctamente', 'success');
+
+    if (supabaseClient) {
+      try {
+        const { error } = await supabaseClient.from('tienda_config').update({
+          nombre: state.settings.nombre,
+          slogan: state.settings.slogan,
+          whatsapp: state.settings.whatsapp,
+          correo: state.settings.correo,
+          direccion: state.settings.direccion,
+          instagram: state.settings.instagram,
+          facebook: state.settings.facebook,
+          tiktok: state.settings.tiktok,
+          moneda: state.settings.moneda,
+          updated_at: new Date().toISOString()
+        }).eq('id', 1);
+        if (error) throw error;
+      } catch(e) {
+        console.warn('Error sincronizando configuración con Supabase:', e);
+        showToast('Guardado local; error al sincronizar con la nube', 'error');
+      }
+    }
   }
 
   /* ════ NOTIFICACIONES & TOAST ════ */
