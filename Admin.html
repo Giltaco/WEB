@@ -1225,11 +1225,38 @@
 
     if (supabaseClient) {
       try {
-        const { data: catData } = await supabaseClient.from('categorias').select('*');
-        if (catData && catData.length > 0) state.categories = catData;
+        // Categorías: DB usa imagen_url -> mapeamos a imagen (modelo interno)
+        const { data: catData } = await supabaseClient.from('categorias').select('*').order('orden');
+        if (catData && catData.length > 0) {
+          state.categories = catData.map(c => ({
+            id: c.id, nombre: c.nombre, slug: c.slug || '', emoji: c.emoji || '💄', imagen: c.imagen_url || ''
+          }));
+        }
 
+        // Productos: DB usa categoria_id/imagen_url/imagenes_extra/reviews_count -> mapeamos al modelo interno
         const { data: prodData } = await supabaseClient.from('productos').select('*');
-        if (prodData && prodData.length > 0) state.products = prodData;
+        if (prodData && prodData.length > 0) {
+          state.products = prodData.map(p => {
+            const cat = state.categories.find(c => c.id === p.categoria_id);
+            return {
+              id: p.id,
+              nombre: p.nombre,
+              categoria: cat ? cat.nombre : '',
+              precio: p.precio,
+              precio_anterior: p.precio_anterior || 0,
+              stock: p.stock || 0,
+              rating: p.rating || 5.0,
+              reviews: p.reviews_count || 0,
+              descripcion: p.descripcion || '',
+              imagen: p.imagen_url || '',
+              galeria: p.imagenes_extra || [],
+              variantes: (p.variantes || []).map(v => ({ id: v.id, nombre: v.nombre, precio: v.precio || '', stock: v.stock, imagen: v.imagen_url || '' })),
+              tags: p.tags || [],
+              activo: p.activo !== false,
+              destacado: p.destacado === true
+            };
+          });
+        }
 
         const { data: pedData } = await supabaseClient.from('pedidos').select('*');
         if (pedData && pedData.length > 0) state.pedidos = pedData;
@@ -1951,6 +1978,28 @@
     renderTagsEditor();
   }
 
+  /* ════ SINCRONIZACIÓN CON SUPABASE (mapeo interno ↔ esquema real) ════ */
+  function isUuid(str) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str || '');
+  }
+
+  async function uploadBase64ToStorage(base64) {
+    if (!base64 || !base64.startsWith('data:')) return base64 || null;
+    if (!supabaseClient) return base64;
+    try {
+      const blob = await (await fetch(base64)).blob();
+      const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      const fileName = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabaseClient.storage.from('producto-fotos').upload(fileName, blob, { contentType: blob.type, upsert: false });
+      if (error) throw error;
+      const { data } = supabaseClient.storage.from('producto-fotos').getPublicUrl(fileName);
+      return data.publicUrl;
+    } catch(e) {
+      console.warn('Error subiendo imagen a Storage:', e);
+      return base64;
+    }
+  }
+
   async function saveProduct() {
     const id = document.getElementById('prodId').value || 'prod_' + Date.now();
     const nombre = document.getElementById('prodNombre').value.trim();
@@ -2003,7 +2052,51 @@
     showToast('Producto guardado correctamente', 'success');
 
     if (supabaseClient) {
-      await supabaseClient.from('productos').upsert(prodData).catch(()=>{});
+      try {
+        const catObj = state.categories.find(c => c.nombre === categoria);
+        const imagen_url = await uploadBase64ToStorage(state.currentProductImage);
+        const imagenes_extra = [];
+        for (const img of state.currentProductMultiImages) imagenes_extra.push(await uploadBase64ToStorage(img));
+
+        const variantesDb = [];
+        for (const v of state.variantesList) {
+          variantesDb.push({
+            id: v.id || crypto.randomUUID(),
+            nombre: v.nombre,
+            precio: v.precio || null,
+            stock: Number(v.stock) || 0,
+            imagen_url: await uploadBase64ToStorage(v.imagen)
+          });
+        }
+        const isAgotado = variantesDb.length > 0 ? variantesDb.every(v => v.stock <= 0) : stock <= 0;
+
+        const dbPayload = {
+          nombre, precio, precio_anterior, rating, descripcion, activo, destacado,
+          reviews_count: reviews,
+          categoria_id: catObj ? catObj.id : null,
+          imagen_url, imagenes_extra,
+          variantes: variantesDb,
+          tags: state.tagsList,
+          stock, agotado: isAgotado
+        };
+
+        if (isUuid(id)) {
+          const { error } = await supabaseClient.from('productos').update(dbPayload).eq('id', id);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabaseClient.from('productos').insert(dbPayload).select().single();
+          if (error) throw error;
+          if (data && data.id) {
+            prodData.id = data.id;
+            document.getElementById('prodId').value = data.id;
+            persistData();
+            renderProductosTable();
+          }
+        }
+      } catch(e) {
+        console.warn('Error sincronizando producto con Supabase:', e);
+        showToast('Guardado local; error al sincronizar con la nube', 'error');
+      }
     }
   }
 
@@ -2140,7 +2233,27 @@
     showToast('Categoría guardada con éxito', 'success');
 
     if (supabaseClient) {
-      await supabaseClient.from('categorias').upsert(catData).catch(()=>{});
+      try {
+        const imagen_url = await uploadBase64ToStorage(state.currentCatImage);
+        const dbPayload = { nombre, emoji, slug, imagen_url, orden: idx >= 0 ? idx : state.categories.length - 1 };
+
+        if (isUuid(id)) {
+          const { error } = await supabaseClient.from('categorias').update(dbPayload).eq('id', id);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabaseClient.from('categorias').insert(dbPayload).select().single();
+          if (error) throw error;
+          if (data && data.id) {
+            catData.id = data.id;
+            persistData();
+            renderCategoriasGrid();
+            updateCategorySelects();
+          }
+        }
+      } catch(e) {
+        console.warn('Error sincronizando categoría con Supabase:', e);
+        showToast('Guardado local; error al sincronizar con la nube', 'error');
+      }
     }
   }
 
