@@ -517,6 +517,9 @@
       <button class="nav-item" onclick="showPage('categorias', this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></span> Categorías
       </button>
+      <button class="nav-item" onclick="showPage('cupones', this)">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2.41 12.41A2 2 0 0 1 2 11V4a2 2 0 0 1 2-2h7a2 2 0 0 1 1.41.59l8.18 8.18a2 2 0 0 1 0 2.83z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span> Cupones
+      </button>
       <div class="nav-section" style="margin-top:12px">Sistema</div>
       <button class="nav-item" onclick="showPage('auditlog', this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span> Auditoría
@@ -694,6 +697,17 @@
       </div>
     </div>
 
+    <!-- CUPONES -->
+    <div class="page" id="page-cupones">
+      <div class="page-header">
+        <div><div class="page-title">Cupones</div><div class="page-subtitle">Códigos de descuento para el catálogo</div></div>
+        <button class="btn btn-purple" onclick="openCupModal()">+ Nuevo Cupón</button>
+      </div>
+      <div id="cupTableWrap">
+        <div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">Cargando...</div></div>
+      </div>
+    </div>
+
     <!-- AUDIT LOG -->
     <div class="page" id="page-auditlog">
       <div class="page-header">
@@ -713,6 +727,7 @@
               <option value="producto">Producto</option>
               <option value="pedido">Pedido</option>
               <option value="categoria">Categoría</option>
+              <option value="cupon">Cupón</option>
             </select>
           </div>
           <button class="btn btn-danger btn-sm" onclick="clearAuditLog()">Limpiar</button>
@@ -994,6 +1009,53 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="cupModal" role="dialog" aria-modal="true" aria-labelledby="cupModalTitle">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title" id="cupModalTitle">Nuevo Cupón</div>
+      <button class="modal-close" onclick="closeModal('cupModal')" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cupId">
+      <div class="form-group">
+        <label>Código *</label>
+        <input type="text" id="cupCodigo" placeholder="Ej. BIENVENIDA10" style="text-transform:uppercase">
+      </div>
+      <div class="form-group">
+        <label>Tipo de descuento</label>
+        <select id="cupTipo">
+          <option value="porcentaje">Porcentaje (%)</option>
+          <option value="monto">Monto fijo ($)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Valor *</label>
+        <input type="number" step="0.01" id="cupValor" placeholder="Ej. 10">
+      </div>
+      <div class="form-group">
+        <label>Compra mínima</label>
+        <input type="number" step="0.01" id="cupMontoMinimo" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Usos máximos (vacío = ilimitado)</label>
+        <input type="number" id="cupUsosMax" placeholder="Ilimitado">
+      </div>
+      <div class="form-group">
+        <label>Fecha de expiración (opcional)</label>
+        <input type="date" id="cupFechaExp">
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="cupActivo" checked style="width:auto">
+        <label style="margin:0">Cupón activo</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('cupModal')">Cancelar</button>
+      <button class="btn btn-purple" onclick="saveCupon()">Guardar Cupón</button>
+    </div>
+  </div>
+</div>
+
 <!-- BANNER & TOAST -->
 <div id="notifBanner">
   <button class="notif-close" onclick="hideNotifBanner()">✕</button>
@@ -1027,6 +1089,7 @@
     products: [],
     categories: [],
     pedidos: [],
+    cupones: [],
     auditLogs: [],
     settings: {
       nombre: "Neli's Make'Up",
@@ -1384,6 +1447,9 @@
         const { data: pedData } = await supabaseClient.from('pedidos').select('*');
         if (pedData && pedData.length > 0) state.pedidos = pedData;
 
+        const { data: cupData } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
+        if (cupData) state.cupones = cupData;
+
         // Configuración funcional de la tienda (fila única, id=1)
         const { data: cfgData } = await supabaseClient.from('tienda_config').select('*').eq('id', 1).single();
         if (cfgData) {
@@ -1458,6 +1524,7 @@
       pedidos: 'Gestión de Pedidos',
       productos: 'Catálogo de Productos',
       categorias: 'Categorías',
+      cupones: 'Cupones y Descuentos',
       auditlog: 'Registro de Auditoría',
       settings: 'Configuración del Sistema'
     };
@@ -1469,6 +1536,7 @@
     if (pageId === 'pedidos') renderPedidos();
     if (pageId === 'productos') renderProductosTable();
     if (pageId === 'categorias') renderCategoriasGrid();
+    if (pageId === 'cupones') renderCuponesTable();
     if (pageId === 'auditlog') renderAuditLog();
   }
 
@@ -2433,6 +2501,142 @@
 
     if (supabaseClient) {
       await supabaseClient.from('categorias').delete().eq('id', id).catch(()=>{});
+    }
+  }
+
+  /* ════ CUPONES ════ */
+  function renderCuponesTable() {
+    const wrap = document.getElementById('cupTableWrap');
+    if (!state.cupones || state.cupones.length === 0) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">Aún no hay cupones creados</div></div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Descuento</th>
+            <th>Mín. compra</th>
+            <th>Usos</th>
+            <th>Expira</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${state.cupones.map(c => {
+            const expirado = c.fecha_expiracion && new Date(c.fecha_expiracion) < new Date();
+            const agotado = c.usos_maximos != null && c.usos_actuales >= c.usos_maximos;
+            const statusClass = (!c.activo) ? 'oculto' : (expirado || agotado) ? 'agotado' : 'activo';
+            const statusLabel = (!c.activo) ? 'Inactivo' : expirado ? 'Expirado' : agotado ? 'Agotado' : 'Activo';
+            return `
+              <tr>
+                <td><strong>${c.codigo}</strong></td>
+                <td>${c.tipo === 'porcentaje' ? `${c.valor}%` : `$${Number(c.valor).toFixed(2)}`}</td>
+                <td>${c.monto_minimo ? `$${Number(c.monto_minimo).toFixed(2)}` : '—'}</td>
+                <td>${c.usos_actuales || 0}${c.usos_maximos != null ? ` / ${c.usos_maximos}` : ' / ∞'}</td>
+                <td>${c.fecha_expiracion ? new Date(c.fecha_expiracion).toLocaleDateString('es-MX') : '—'}</td>
+                <td><span class="status-pill status-${statusClass}">${statusLabel}</span></td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="btn btn-sm btn-outline" onclick="openCupModal('${c.id}')">✏️ Editar</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCupon('${c.id}')">🗑️</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function openCupModal(cupId = null) {
+    document.getElementById('cupModalTitle').textContent = cupId ? 'Editar Cupón' : 'Nuevo Cupón';
+    document.getElementById('cupId').value = cupId || '';
+
+    if (cupId) {
+      const c = state.cupones.find(x => x.id === cupId);
+      if (c) {
+        document.getElementById('cupCodigo').value = c.codigo;
+        document.getElementById('cupTipo').value = c.tipo;
+        document.getElementById('cupValor').value = c.valor;
+        document.getElementById('cupMontoMinimo').value = c.monto_minimo || 0;
+        document.getElementById('cupUsosMax').value = c.usos_maximos != null ? c.usos_maximos : '';
+        document.getElementById('cupFechaExp').value = c.fecha_expiracion ? c.fecha_expiracion.slice(0, 10) : '';
+        document.getElementById('cupActivo').checked = c.activo !== false;
+      }
+    } else {
+      document.getElementById('cupCodigo').value = '';
+      document.getElementById('cupTipo').value = 'porcentaje';
+      document.getElementById('cupValor').value = '';
+      document.getElementById('cupMontoMinimo').value = 0;
+      document.getElementById('cupUsosMax').value = '';
+      document.getElementById('cupFechaExp').value = '';
+      document.getElementById('cupActivo').checked = true;
+    }
+    document.getElementById('cupModal').classList.add('open');
+  }
+
+  async function saveCupon() {
+    const id = document.getElementById('cupId').value || null;
+    const codigo = document.getElementById('cupCodigo').value.trim().toUpperCase();
+    const tipo = document.getElementById('cupTipo').value;
+    const valor = parseFloat(document.getElementById('cupValor').value);
+    const monto_minimo = parseFloat(document.getElementById('cupMontoMinimo').value) || 0;
+    const usosMaxRaw = document.getElementById('cupUsosMax').value;
+    const usos_maximos = usosMaxRaw !== '' ? parseInt(usosMaxRaw) : null;
+    const fechaExpRaw = document.getElementById('cupFechaExp').value;
+    const fecha_expiracion = fechaExpRaw ? new Date(fechaExpRaw).toISOString() : null;
+    const activo = document.getElementById('cupActivo').checked;
+
+    if (!codigo || isNaN(valor)) {
+      showToast('Ingresa un código y un valor válido', 'error');
+      return;
+    }
+    if (!supabaseClient) {
+      showToast('Se requiere conexión a Supabase para gestionar cupones', 'error');
+      return;
+    }
+
+    const payload = { codigo, tipo, valor, monto_minimo, usos_maximos, fecha_expiracion, activo };
+
+    try {
+      if (id) {
+        const { error } = await supabaseClient.from('cupones').update(payload).eq('id', id);
+        if (error) throw error;
+        logAudit('cupon', 'success', `Cupón actualizado: ${codigo}`);
+      } else {
+        const { error } = await supabaseClient.from('cupones').insert(payload);
+        if (error) throw error;
+        logAudit('cupon', 'success', `Nuevo cupón creado: ${codigo}`);
+      }
+      closeModal('cupModal');
+      showToast('Cupón guardado correctamente', 'success');
+      const { data: cupData } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
+      state.cupones = cupData || [];
+      renderCuponesTable();
+    } catch(e) {
+      console.warn('Error guardando cupón:', e);
+      showToast('No se pudo guardar el cupón (¿código repetido?)', 'error');
+    }
+  }
+
+  async function deleteCupon(id) {
+    if (!confirm('¿Estás segura de eliminar este cupón?')) return;
+    if (!supabaseClient) return;
+    try {
+      const { error } = await supabaseClient.from('cupones').delete().eq('id', id);
+      if (error) throw error;
+      state.cupones = state.cupones.filter(c => c.id !== id);
+      logAudit('cupon', 'warning', `Cupón eliminado: ${id}`);
+      renderCuponesTable();
+      showToast('Cupón eliminado');
+    } catch(e) {
+      console.warn('Error eliminando cupón:', e);
+      showToast('No se pudo eliminar el cupón', 'error');
     }
   }
 
