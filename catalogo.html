@@ -452,10 +452,16 @@ function actualizarRedSocial(id, url) {
 }
 
 // ─── CONSTRUCCIÓN DE INTERFAZ ───
+const CATALOG_PAGE_SIZE = 12;
+let CAT_PRODS = {};
+let CAT_SHOWN = {};
+
 function buildUI() {
   const fb = document.getElementById('filtersBar');
   const root = document.getElementById('catalogoRoot');
   root.innerHTML = '';
+  CAT_PRODS = {};
+  CAT_SHOWN = {};
   fb.innerHTML = `
     <div class="filter-bubble active" data-cat="todos" onclick="filtrar('todos', this)">
       <div class="filter-bubble-img"><img src="https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?q=80&w=150&auto=format&fit=crop" alt="Todas"></div>
@@ -489,10 +495,36 @@ function buildUI() {
     const grid = document.createElement('div'); 
     grid.className = 'catalog-section'; 
     grid.setAttribute('data-grid', cat.id); 
-    
-    catProds.forEach((p) => grid.appendChild(buildCard(p))); 
+
+    // Paginación: solo se renderiza el primer lote; el resto se carga bajo demanda
+    CAT_PRODS[cat.id] = catProds;
+    const firstBatch = catProds.slice(0, CATALOG_PAGE_SIZE);
+    firstBatch.forEach((p) => grid.appendChild(buildCard(p)));
+    CAT_SHOWN[cat.id] = firstBatch.length;
     root.appendChild(grid);
+
+    if (catProds.length > CATALOG_PAGE_SIZE) {
+      const loadMoreWrap = document.createElement('div');
+      loadMoreWrap.className = 'catalog-loadmore-wrap';
+      loadMoreWrap.setAttribute('data-loadmore', cat.id);
+      loadMoreWrap.style.cssText = 'text-align:center;margin:8px 0 40px';
+      loadMoreWrap.innerHTML = `<button class="hero-cta" style="border:none;cursor:pointer" onclick="cargarMasCategoria('${cat.id}')">Ver más ${esc(cat.nombre)}</button>`;
+      root.appendChild(loadMoreWrap);
+    }
   });
+}
+
+function cargarMasCategoria(catId) {
+  const grid = document.querySelector(`.catalog-section[data-grid="${catId}"]`);
+  const wrap = document.querySelector(`[data-loadmore="${catId}"]`);
+  if (!grid) return;
+  const shown = CAT_SHOWN[catId] || 0;
+  const nextBatch = (CAT_PRODS[catId] || []).slice(shown, shown + CATALOG_PAGE_SIZE);
+  nextBatch.forEach(p => grid.appendChild(buildCard(p)));
+  CAT_SHOWN[catId] = shown + nextBatch.length;
+  if (CAT_SHOWN[catId] >= (CAT_PRODS[catId] || []).length && wrap) {
+    wrap.remove();
+  }
 }
 
 function renderEstrellas(rating) {
@@ -559,29 +591,53 @@ function filtrar(catId, btnEl) {
   if (btnEl) btnEl.classList.add('active');
   
   const sections = document.querySelectorAll('.section-heading');
-  const grids = document.querySelectorAll('.catalog-section');
+  const grids = document.querySelectorAll('.catalog-section:not(#searchResultsGrid)');
+  const loadMores = document.querySelectorAll('.catalog-loadmore-wrap');
+  const searchGrid = document.getElementById('searchResultsGrid');
+  if (searchGrid) searchGrid.style.display = 'none';
   
   sections.forEach(s => { s.style.display = (catId === 'todos' || s.dataset.section === catId) ? 'flex' : 'none'; });
   grids.forEach(g => { g.style.display = (catId === 'todos' || g.dataset.grid === catId) ? 'grid' : 'none'; });
+  loadMores.forEach(w => { w.style.display = (catId === 'todos' || w.dataset.loadmore === catId) ? 'block' : 'none'; });
 }
 
 function handleSearch(val) {
   const query = val.toLowerCase().trim();
-  const cards = document.querySelectorAll('.card');
   const sections = document.querySelectorAll('.section-heading');
-  const grids = document.querySelectorAll('.catalog-section');
+  const grids = document.querySelectorAll('.catalog-section:not(#searchResultsGrid)');
+  const loadMores = document.querySelectorAll('.catalog-loadmore-wrap');
+  let searchGrid = document.getElementById('searchResultsGrid');
 
   if (!query) {
+    if (searchGrid) searchGrid.style.display = 'none';
     const activeBubble = document.querySelector('.filter-bubble.active');
     const catId = activeBubble ? activeBubble.dataset.cat : 'todos';
     filtrar(catId, activeBubble);
-    cards.forEach(c => c.style.display = 'flex');
     return;
   }
+
+  // Modo búsqueda: busca en TODO el catálogo, no solo en lo ya cargado por paginación
   document.querySelectorAll('.filter-bubble').forEach(el => el.classList.remove('active'));
-  cards.forEach(card => card.style.display = card.getAttribute('data-search').includes(query) ? 'flex' : 'none');
-  sections.forEach(s => s.style.display = 'flex');
-  grids.forEach(g => g.style.display = 'grid');
+  sections.forEach(s => s.style.display = 'none');
+  grids.forEach(g => g.style.display = 'none');
+  loadMores.forEach(w => w.style.display = 'none');
+
+  if (!searchGrid) {
+    searchGrid = document.createElement('div');
+    searchGrid.className = 'catalog-section';
+    searchGrid.id = 'searchResultsGrid';
+    document.getElementById('catalogoRoot').prepend(searchGrid);
+  }
+
+  const matches = PRODUCTOS.filter(p => (p.nombre + ' ' + (p.categorias?.nombre || '')).toLowerCase().includes(query));
+  searchGrid.innerHTML = '';
+  if (matches.length === 0) {
+    searchGrid.style.display = 'block';
+    searchGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-sec)">No encontramos productos para "${esc(val)}"</div>`;
+  } else {
+    searchGrid.style.display = 'grid';
+    matches.forEach(p => searchGrid.appendChild(buildCard(p)));
+  }
 }
 
 // ─── FUNCIONES DE CARRITO Y MODAL ───
