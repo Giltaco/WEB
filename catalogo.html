@@ -754,22 +754,59 @@ function renderCart() {
 function openCart() { document.getElementById('cartOverlay').classList.add('open'); document.getElementById('cartDrawer').classList.add('open'); }
 function closeCart() { document.getElementById('cartOverlay').classList.remove('open'); document.getElementById('cartDrawer').classList.remove('open'); }
 
-function checkout() {
+async function checkout() {
   if (cart.length === 0) return alert('Agrega productos a tu bolsa.');
   const name = document.getElementById('clientName').value.trim();
   const phone = document.getElementById('clientPhone').value.trim();
   if (!name || !phone) return alert('Por favor, ingresa tu nombre y teléfono.');
-  
+
+  const btn = document.getElementById('checkoutBtn');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+
   let msg = TIENDA.mensajeBase + `\n\n*Cliente:* ${name}\n*Teléfono:* ${phone}\n\n*Mi Pedido:*\n`;
   let total = 0;
+  const items = [];
   cart.forEach(i => {
     const p = parseFloat(i.prod.precio) || 0;
     total += p * i.qty;
     msg += `• ${i.qty}x ${i.prod.nombre} ${i.variante ? `(Tono: ${i.variante.nombre})` : ''} - $${(p * i.qty).toLocaleString('es-MX')}\n`;
+    items.push({
+      producto_id: i.prod.id,
+      variante_id: i.variante?.id || null,
+      nombre: i.prod.nombre + (i.variante ? ` (${i.variante.nombre})` : ''),
+      cantidad: i.qty,
+      precio: p
+    });
   });
   msg += `\n*Total a pagar: $${total.toLocaleString('es-MX')} MXN*`;
-  
+
+  // Guardar el pedido real en Supabase y descontar stock de forma atómica
+  if (sb) {
+    try {
+      const { error: pedError } = await sb.from('pedidos').insert({ cliente: name, whatsapp: phone, total, items });
+      if (pedError) throw pedError;
+
+      for (const it of items) {
+        await sb.rpc('descontar_stock', {
+          p_producto_id: it.producto_id,
+          p_variante_id: it.variante_id,
+          p_cantidad: it.cantidad
+        }).catch(e => console.warn('Error descontando stock:', e));
+      }
+    } catch(e) {
+      console.warn('Error guardando el pedido:', e);
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Completar Orden';
+
   window.open(waLink(msg), '_blank');
+  cart = [];
+  saveCartToStorage();
+  renderCart();
+  closeCart();
 }
 
 // Inicializar al cargar
@@ -879,7 +916,7 @@ window.addEventListener('DOMContentLoaded', init);
   
   <div class="footer-bottom">
     <div>&copy; 2026 Neli's Make'up. Todos los derechos reservados.</div>
-    <div class="dev-signature">Desarrollado por Ing. Librado </div>
+    <div class="dev-signature">Desarrollado por Ing. Librado ❤️</div>
   </div>
 </footer>
 
