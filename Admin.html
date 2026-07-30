@@ -55,6 +55,8 @@
   .login-mark svg { width: 28px; height: 28px; }
   .login-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 400; color: var(--lav-700); text-align: center; margin-bottom: 3px; }
   .login-sub { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-soft); text-align: center; margin-bottom: 38px; }
+  .login-forgot { text-align: center; font-size: 12px; color: var(--brand-gold); margin-top: 16px; cursor: pointer; text-decoration: underline; }
+  .login-forgot:hover { opacity: 0.8; }
   .login-attempts { font-size: 11px; color: var(--warning); text-align: center; margin-bottom: 10px; display: none; }
 
   /* ── FORM ── */
@@ -451,16 +453,37 @@
     <div class="login-sub">Panel Administrativo</div>
     <div class="error-msg" id="loginError"></div>
     <div class="login-attempts" id="loginAttempts"></div>
-    <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="loginEmail" placeholder="tu@email.com" autocomplete="email">
+
+    <div id="loginFormBlock">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="loginEmail" placeholder="tu@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+      <button class="btn-primary" id="loginBtn" onclick="doLogin()">Acceder al Panel</button>
+      <div class="login-forgot" onclick="showForgotForm()">¿Olvidaste tu contraseña?</div>
     </div>
-    <div class="form-group">
-      <label>Contraseña</label>
-      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"
-             onkeydown="if(event.key==='Enter') doLogin()">
+
+    <div id="forgotFormBlock" style="display:none">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="forgotEmail" placeholder="tu@email.com">
+      </div>
+      <button class="btn-primary" id="forgotBtn" onclick="sendPasswordReset()">Enviar enlace de recuperación</button>
+      <div class="login-forgot" onclick="showLoginForm()">Volver a iniciar sesión</div>
     </div>
-    <button class="btn-primary" id="loginBtn" onclick="doLogin()">Acceder al Panel</button>
+
+    <div id="resetFormBlock" style="display:none">
+      <div class="form-group">
+        <label>Nueva contraseña</label>
+        <input type="password" id="newPass" placeholder="••••••••">
+      </div>
+      <button class="btn-primary" id="resetBtn" onclick="updatePasswordAfterRecovery()">Guardar nueva contraseña</button>
+    </div>
   </div>
 </div>
 
@@ -988,6 +1011,13 @@
   try {
     if (window.supabase) {
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabaseClient.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          document.getElementById('loginFormBlock').style.display = 'none';
+          document.getElementById('forgotFormBlock').style.display = 'none';
+          document.getElementById('resetFormBlock').style.display = 'block';
+        }
+      });
     }
   } catch(e) { console.warn('Supabase init warning:', e); }
 
@@ -1142,6 +1172,58 @@
       errEl.style.display = 'block';
       logAudit('login', 'error', `Intento de acceso fallido para ${email}`);
     }
+  }
+
+  /* ════ RECUPERACIÓN DE CONTRASEÑA ════ */
+  function showForgotForm() {
+    document.getElementById('loginFormBlock').style.display = 'none';
+    document.getElementById('forgotFormBlock').style.display = 'block';
+    document.getElementById('loginError').style.display = 'none';
+  }
+
+  function showLoginForm() {
+    document.getElementById('forgotFormBlock').style.display = 'none';
+    document.getElementById('resetFormBlock').style.display = 'none';
+    document.getElementById('loginFormBlock').style.display = 'block';
+  }
+
+  async function sendPasswordReset() {
+    const email = document.getElementById('forgotEmail').value.trim();
+    if (!email) { showToast('Ingresa tu email', 'error'); return; }
+    if (!supabaseClient) { showToast('Servicio no disponible en este momento', 'error'); return; }
+
+    const btn = document.getElementById('forgotBtn');
+    btn.disabled = true;
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
+      });
+      if (error) throw error;
+      showToast('Revisa tu correo para restablecer tu contraseña', 'success');
+    } catch(e) {
+      showToast('No se pudo enviar el enlace: ' + (e.message || 'error desconocido'), 'error');
+    }
+    btn.disabled = false;
+  }
+
+  async function updatePasswordAfterRecovery() {
+    const newPass = document.getElementById('newPass').value.trim();
+    if (!newPass || newPass.length < 6) { showToast('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
+    if (!supabaseClient) { showToast('Servicio no disponible en este momento', 'error'); return; }
+
+    const btn = document.getElementById('resetBtn');
+    btn.disabled = true;
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password: newPass });
+      if (error) throw error;
+      showToast('Contraseña actualizada. Ya puedes iniciar sesión.', 'success');
+      await supabaseClient.auth.signOut();
+      document.getElementById('resetFormBlock').style.display = 'none';
+      document.getElementById('loginFormBlock').style.display = 'block';
+    } catch(e) {
+      showToast('Error al actualizar la contraseña: ' + (e.message || ''), 'error');
+    }
+    btn.disabled = false;
   }
 
   function doLogout() {
@@ -1880,6 +1962,28 @@
       processImageFile(e.dataTransfer.files[0]);
     }
   }
+  /* Compresión de imágenes antes de guardarlas/subirlas (mismo preview, menos peso) */
+  function compressImageDataUrl(dataUrl, maxDim = 1280, quality = 0.82) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function handleImgSelect(e) {
     if (e.target.files && e.target.files[0]) {
       processImageFile(e.target.files[0]);
@@ -1892,8 +1996,8 @@
       return;
     }
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      state.currentProductImage = evt.target.result;
+    reader.onload = async (evt) => {
+      state.currentProductImage = await compressImageDataUrl(evt.target.result);
       document.getElementById('imgPreview').src = state.currentProductImage;
       document.getElementById('imgPreviewWrap').style.display = 'block';
       document.getElementById('imgUploadArea').style.display = 'none';
@@ -1914,8 +2018,8 @@
     if (e.target.files) {
       Array.from(e.target.files).forEach(file => {
         const reader = new FileReader();
-        reader.onload = (evt) => {
-          state.currentProductMultiImages.push(evt.target.result);
+        reader.onload = async (evt) => {
+          state.currentProductMultiImages.push(await compressImageDataUrl(evt.target.result));
           renderMultiImgGrid();
         };
         reader.readAsDataURL(file);
@@ -1989,8 +2093,8 @@
   function handleVarImg(idx, e) {
     if (e.target.files && e.target.files[0]) {
       const reader = new FileReader();
-      reader.onload = (evt) => {
-        state.variantesList[idx].imagen = evt.target.result;
+      reader.onload = async (evt) => {
+        state.variantesList[idx].imagen = await compressImageDataUrl(evt.target.result);
         renderVariantesEditor();
       };
       reader.readAsDataURL(e.target.files[0]);
@@ -2248,8 +2352,8 @@
   function handleCatImgSelect(e) {
     if (e.target.files && e.target.files[0]) {
       const reader = new FileReader();
-      reader.onload = (evt) => {
-        state.currentCatImage = evt.target.result;
+      reader.onload = async (evt) => {
+        state.currentCatImage = await compressImageDataUrl(evt.target.result);
         document.getElementById('catImgPreview').src = state.currentCatImage;
         document.getElementById('catImgPreviewWrap').style.display = 'block';
       };
