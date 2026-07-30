@@ -679,7 +679,104 @@ function renderPDInfo(p) {
     ${tonosHtml}
     <div class="pd-divider"></div>
     ${actionsHtml}
+    <div class="pd-divider"></div>
+    <div id="pdReviewsSection">Cargando reseñas...</div>
   `;
+  loadReviews(p.id);
+}
+
+/* ════ RESEÑAS DE PRODUCTO ════ */
+let selectedReviewStars = 5;
+
+async function loadReviews(productId) {
+  const section = document.getElementById('pdReviewsSection');
+  if (!sb) { section.innerHTML = ''; return; }
+  try {
+    const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).order('created_at', { ascending: false });
+    if (error) throw error;
+    renderReviewsSection(productId, data || []);
+    updateTopRatingDisplay(productId, data || []);
+  } catch(e) {
+    console.warn('Error cargando reseñas:', e);
+    section.innerHTML = '';
+  }
+}
+
+function updateTopRatingDisplay(productId, reviews) {
+  const p = PRODUCTOS.find(x => x.id === productId);
+  if (!p) return;
+  const count = reviews.length;
+  const avg = count > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / count) : 5;
+  p.rating = avg;
+  p.reviews_count = count;
+  const starsEl = document.querySelector('#pdInfoPane .card-rating .stars');
+  const textEl = document.querySelector('#pdInfoPane .card-rating .rating-text');
+  if (starsEl) starsEl.innerHTML = renderEstrellas(avg);
+  if (textEl) textEl.textContent = `${avg.toFixed(1)} (${count} Reseñas)`;
+}
+
+function renderReviewsSection(productId, reviews) {
+  const section = document.getElementById('pdReviewsSection');
+  selectedReviewStars = 5;
+
+  const listHtml = reviews.length > 0
+    ? reviews.map(r => `
+        <div style="border-bottom:1px solid var(--border-color);padding:14px 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <strong style="font-size:13px">${esc(r.cliente)}</strong>
+            <span class="stars" style="font-size:12px;color:var(--gold)">${renderEstrellas(r.rating)}</span>
+          </div>
+          ${r.comentario ? `<p style="font-size:13px;color:var(--text-sec);margin:0">${esc(r.comentario)}</p>` : ''}
+        </div>
+      `).join('')
+    : `<p style="font-size:13px;color:var(--text-sec)">Aún no hay reseñas. ¡Sé la primera en opinar!</p>`;
+
+  section.innerHTML = `
+    <h3 style="font-family:var(--font-heading);font-weight:400;font-size:18px;margin:0 0 12px">Reseñas (${reviews.length})</h3>
+    <div style="max-height:220px;overflow-y:auto;margin-bottom:16px">${listHtml}</div>
+    <div style="background:var(--support);border-radius:var(--radius-card);padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">Deja tu reseña</div>
+      <div id="reviewStarsInput" style="font-size:24px;color:var(--gold);margin-bottom:10px;cursor:pointer">
+        ${[1,2,3,4,5].map(n => `<span data-val="${n}" onclick="setReviewStar(${n})">★</span>`).join('')}
+      </div>
+      <div class="cart-form-field"><input type="text" id="reviewName" placeholder="Tu nombre"></div>
+      <div class="cart-form-field"><input type="text" id="reviewComment" placeholder="Cuéntanos qué te pareció (opcional)"></div>
+      <button class="btn-checkout" id="reviewSubmitBtn" onclick="submitReview('${productId}')">Enviar reseña</button>
+    </div>
+  `;
+}
+
+function setReviewStar(n) {
+  selectedReviewStars = n;
+  document.querySelectorAll('#reviewStarsInput span').forEach(s => {
+    s.textContent = parseInt(s.dataset.val) <= n ? '★' : '☆';
+  });
+}
+
+async function submitReview(productId) {
+  const nombre = document.getElementById('reviewName').value.trim();
+  const comentario = document.getElementById('reviewComment').value.trim();
+  if (!nombre) { alert('Ingresa tu nombre.'); return; }
+  if (!sb) { alert('Servicio no disponible en este momento.'); return; }
+
+  const btn = document.getElementById('reviewSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    const { error } = await sb.from('resenas').insert({
+      producto_id: productId,
+      cliente: nombre,
+      rating: selectedReviewStars,
+      comentario: comentario || null
+    });
+    if (error) throw error;
+    await loadReviews(productId);
+  } catch(e) {
+    console.warn('Error enviando reseña:', e);
+    alert('No se pudo enviar tu reseña. Intenta de nuevo.');
+    btn.disabled = false;
+    btn.textContent = 'Enviar reseña';
+  }
 }
 
 // ─── GESTIÓN DE CARRITO (CART) ───
