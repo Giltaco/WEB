@@ -782,10 +782,14 @@ async function checkout() {
   msg += `\n*Total a pagar: $${total.toLocaleString('es-MX')} MXN*`;
 
   // Guardar el pedido real en Supabase y descontar stock de forma atómica
+  let orderId = null;
   if (sb) {
     try {
-      const { error: pedError } = await sb.from('pedidos').insert({ cliente: name, whatsapp: phone, total, items });
+      const { data: pedData, error: pedError } = await sb.from('pedidos')
+        .insert({ cliente: name, whatsapp: phone, total, items })
+        .select().single();
       if (pedError) throw pedError;
+      orderId = pedData?.id || null;
 
       for (const it of items) {
         await sb.rpc('descontar_stock', {
@@ -802,11 +806,85 @@ async function checkout() {
   btn.disabled = false;
   btn.textContent = 'Completar Orden';
 
-  window.open(waLink(msg), '_blank');
+  lastOrderWaLink = waLink(msg);
   cart = [];
   saveCartToStorage();
   renderCart();
   closeCart();
+  showOrderConfirmation(orderId, items, total);
+}
+
+let lastOrderWaLink = '';
+
+function showOrderConfirmation(orderId, items, total) {
+  const shortId = orderId ? orderId.slice(0, 8).toUpperCase() : '—';
+  document.getElementById('orderConfirmBody').innerHTML = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--support);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <svg viewBox="0 0 24 24" style="width:32px;height:32px;stroke:var(--primary);fill:none;stroke-width:2"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <h3 style="font-family:var(--font-heading);font-weight:400;margin:0 0 4px">¡Pedido recibido!</h3>
+      <p style="font-size:13px;color:var(--text-sec);margin:0">Pedido #${shortId} · $${total.toLocaleString('es-MX')} MXN</p>
+    </div>
+    <div style="font-size:13px;color:var(--text-main);line-height:1.8">
+      ${items.map(it => `${it.cantidad}x ${it.nombre}`).join('<br>')}
+    </div>
+    <p style="font-size:12px;color:var(--text-sec);margin-top:16px;text-align:center">Confirma tu pedido por WhatsApp para que lo preparemos.</p>
+  `;
+  document.getElementById('orderConfirmOverlay').classList.add('open');
+}
+
+function closeOrderConfirm() {
+  document.getElementById('orderConfirmOverlay').classList.remove('open');
+}
+
+function confirmarPorWhatsapp() {
+  if (lastOrderWaLink) window.open(lastOrderWaLink, '_blank');
+  closeOrderConfirm();
+}
+
+/* ════ MIS PEDIDOS (historial por teléfono) ════ */
+function openOrdersModal() {
+  document.getElementById('ordersResults').innerHTML = '';
+  document.getElementById('ordersPhone').value = '';
+  document.getElementById('ordersOverlay').classList.add('open');
+}
+
+function closeOrdersModal() {
+  document.getElementById('ordersOverlay').classList.remove('open');
+}
+
+async function buscarMisPedidos() {
+  const phone = document.getElementById('ordersPhone').value.trim();
+  const resultsEl = document.getElementById('ordersResults');
+  if (!phone) { resultsEl.innerHTML = '<p style="font-size:13px;color:var(--offer)">Ingresa un teléfono válido.</p>'; return; }
+  if (!sb) { resultsEl.innerHTML = '<p style="font-size:13px;color:var(--offer)">Servicio no disponible en este momento.</p>'; return; }
+
+  resultsEl.innerHTML = '<p style="font-size:13px;color:var(--text-sec)">Buscando...</p>';
+  try {
+    const { data, error } = await sb.rpc('obtener_mis_pedidos', { p_whatsapp: phone });
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      resultsEl.innerHTML = '<p style="font-size:13px;color:var(--text-sec)">No encontramos pedidos con ese teléfono.</p>';
+      return;
+    }
+    resultsEl.innerHTML = data.map(p => `
+      <div style="border:1px solid var(--border-color);border-radius:var(--radius-card);padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <strong style="font-family:var(--font-heading);font-weight:500">Pedido #${p.id.slice(0,8).toUpperCase()}</strong>
+          <span style="font-size:12px;color:var(--primary);text-transform:capitalize">${p.estado}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-sec);margin-bottom:8px">${new Date(p.fecha).toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' })}</div>
+        <div style="font-size:13px;color:var(--text-main);line-height:1.6">
+          ${(p.items || []).map(it => `${it.cantidad}x ${it.nombre}`).join('<br>')}
+        </div>
+        <div style="text-align:right;font-weight:600;margin-top:8px">$${Number(p.total).toLocaleString('es-MX')} MXN</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    resultsEl.innerHTML = '<p style="font-size:13px;color:var(--offer)">Error al buscar tus pedidos.</p>';
+    console.warn(e);
+  }
 }
 
 // Inicializar al cargar
@@ -850,6 +928,9 @@ window.addEventListener('DOMContentLoaded', init);
   <div class="header-right">
     <button class="icon-btn" onclick="toggleMobileSearch()" title="Buscar" id="mobileSearchBtn">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    </button>
+    <button class="icon-btn" onclick="openOrdersModal()" title="Mis pedidos">
+      <svg viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6M9 8h6M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"></path></svg>
     </button>
     <button class="icon-btn" title="Favoritos">
       <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
@@ -952,6 +1033,25 @@ window.addEventListener('DOMContentLoaded', init);
       </div>
       <div class="pd-info" id="pdInfoPane"></div>
     </div>
+  </div>
+</div>
+
+<div class="pd-overlay" id="orderConfirmOverlay">
+  <div class="pd-modal" id="orderConfirmModal" style="flex-direction:column;max-width:420px;padding:36px 32px;overflow-y:auto">
+    <button class="pd-close-btn" onclick="closeOrderConfirm()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    <div id="orderConfirmBody"></div>
+    <button class="btn-checkout" onclick="confirmarPorWhatsapp()" style="margin-top:20px">Confirmar por WhatsApp</button>
+  </div>
+</div>
+
+<div class="pd-overlay" id="ordersOverlay">
+  <div class="pd-modal" id="ordersModal" style="flex-direction:column;max-width:460px;padding:36px 32px;overflow-y:auto">
+    <button class="pd-close-btn" onclick="closeOrdersModal()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    <h3 style="font-family:var(--font-heading);font-weight:400;margin:0 0 4px">Mis Pedidos</h3>
+    <p style="font-size:13px;color:var(--text-sec);margin:0 0 20px">Ingresa el teléfono con el que hiciste tu pedido.</p>
+    <div class="cart-form-field"><input type="tel" id="ordersPhone" placeholder="Teléfono / WhatsApp"></div>
+    <button class="btn-checkout" id="ordersSearchBtn" onclick="buscarMisPedidos()" style="margin-bottom:20px">Buscar</button>
+    <div id="ordersResults"></div>
   </div>
 </div>
 
