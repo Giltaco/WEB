@@ -263,6 +263,7 @@
   .status-activo  { background: #E9F4EC; color: var(--success); border-color: rgba(76,139,93,0.2); }
   .status-agotado { background: #F3E3CE; color: var(--agotado); border-color: rgba(166,107,46,0.2); }
   .status-oculto  { background: #FBEAEA; color: var(--danger); border-color: rgba(196,61,61,0.2); }
+  .status-lav     { background: var(--lav-100); color: var(--lav-600); border-color: var(--border2); }
   .var-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; background: var(--lav-100); color: var(--lav-600); border: 1px solid var(--border2); padding: 2px 8px; border-radius: 20px; }
 
   /* ── PAGINATION ── */
@@ -524,6 +525,9 @@
       <button class="nav-item" onclick="showPage('auditlog', this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span> Auditoría
       </button>
+      <button class="nav-item" onclick="showPage('sugerencias', this)">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></span> Sugerencias
+      </button>
       <button class="nav-item" onclick="showPage('settings', this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span> Configuración
       </button>
@@ -737,6 +741,38 @@
         <div class="panel-body" style="padding:0;overflow:hidden">
           <div id="auditWrap">
             <div class="empty-state"><div class="empty-icon">📜</div><div class="empty-text">Sin registros aún</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUGERENCIAS -->
+    <div class="page" id="page-sugerencias">
+      <div class="page-header">
+        <div><div class="page-title">Sugerencias</div><div class="page-subtitle" id="sugCount">Cargando...</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="sugSearch" placeholder="Buscar por nombre, correo o mensaje..." aria-label="Buscar sugerencias" oninput="renderSugerenciasTable()">
+          </div>
+          <select id="sugFilterTipo" onchange="renderSugerenciasTable()" aria-label="Filtrar por tipo" style="padding:8px 13px;border:1px solid var(--border2);border-radius:9px;font-family:'Poppins';font-size:12.5px;color:var(--text-mid);background:white;outline:none;cursor:pointer">
+            <option value="">Todos los tipos</option>
+            <option value="Sugerencia">💡 Sugerencia</option>
+            <option value="Error">🐞 Error</option>
+            <option value="Felicitación">🎉 Felicitación</option>
+            <option value="Otro">✉️ Otro</option>
+          </select>
+          <select id="sugSort" onchange="renderSugerenciasTable()" aria-label="Ordenar por fecha" style="padding:8px 13px;border:1px solid var(--border2);border-radius:9px;font-family:'Poppins';font-size:12.5px;color:var(--text-mid);background:white;outline:none;cursor:pointer">
+            <option value="reciente">Más recientes primero</option>
+            <option value="antiguo">Más antiguas primero</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="loadSugerencias()">↻ Actualizar</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0;overflow:hidden">
+          <div id="sugTableWrap">
+            <div class="empty-state"><div class="empty-icon">✉️</div><div class="empty-text">Cargando...</div></div>
           </div>
         </div>
       </div>
@@ -1052,6 +1088,20 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('cupModal')">Cancelar</button>
       <button class="btn btn-purple" onclick="saveCupon()">Guardar Cupón</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="sugModal" role="dialog" aria-modal="true" aria-labelledby="sugModalTitle">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <div class="modal-title" id="sugModalTitle">Detalle de la sugerencia</div>
+      <button class="modal-close" onclick="closeModal('sugModal')" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" id="sugModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('sugModal')">Cerrar</button>
+      <button class="btn btn-danger" id="sugModalDeleteBtn">🗑️ Eliminar</button>
     </div>
   </div>
 </div>
@@ -1526,6 +1576,7 @@
       categorias: 'Categorías',
       cupones: 'Cupones y Descuentos',
       auditlog: 'Registro de Auditoría',
+      sugerencias: 'Buzón de Sugerencias',
       settings: 'Configuración del Sistema'
     };
     document.getElementById('topbarTitle').textContent = titles[pageId] || 'Admin';
@@ -1538,6 +1589,7 @@
     if (pageId === 'categorias') renderCategoriasGrid();
     if (pageId === 'cupones') renderCuponesTable();
     if (pageId === 'auditlog') renderAuditLog();
+    if (pageId === 'sugerencias') loadSugerencias();
   }
 
   function toggleSidebar() {
@@ -2737,6 +2789,208 @@
   }
 
   /* ════ NOTIFICACIONES & TOAST ════ */
+  /* ════ SUGERENCIAS (BUZÓN) ════ */
+  const sugState = { items: [], loading: false, error: false, loaded: false, page: 1, perPage: 8 };
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  function sugTipoClass(type) {
+    if (type === 'Error') return 'status-oculto';
+    if (type === 'Felicitación') return 'status-activo';
+    if (type === 'Otro') return 'status-agotado';
+    return 'status-lav';
+  }
+
+  function sugTipoIcon(type) {
+    if (type === 'Error') return '🐞';
+    if (type === 'Felicitación') return '🎉';
+    if (type === 'Otro') return '✉️';
+    return '💡';
+  }
+
+  async function loadSugerencias() {
+    const wrap = document.getElementById('sugTableWrap');
+    const countEl = document.getElementById('sugCount');
+    sugState.loading = true;
+    sugState.error = false;
+    countEl.textContent = 'Cargando...';
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Cargando sugerencias...</div></div>`;
+
+    if (!supabaseClient) {
+      sugState.loading = false;
+      sugState.error = true;
+      countEl.textContent = 'Error al cargar';
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error al cargar: servicio no disponible en este momento</div></div>`;
+      return;
+    }
+
+    try {
+      const { data, error } = await supabaseClient.from('suggestions').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      sugState.items = data || [];
+      sugState.loaded = true;
+      sugState.page = 1;
+      sugState.loading = false;
+      renderSugerenciasTable();
+    } catch (e) {
+      console.warn('Error al cargar sugerencias:', e);
+      sugState.loading = false;
+      sugState.error = true;
+      countEl.textContent = 'Error al cargar';
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error al cargar las sugerencias. Intenta de nuevo.</div></div>`;
+    }
+  }
+
+  function sugPageNumbers(total, current) {
+    const pages = [];
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= current - 1 && i <= current + 1)) pages.push(i);
+      else if (pages[pages.length - 1] !== '...') pages.push('...');
+    }
+    return pages;
+  }
+
+  function renderSugerenciasTable() {
+    if (sugState.error || sugState.loading) return;
+    const wrap = document.getElementById('sugTableWrap');
+    const search = (document.getElementById('sugSearch').value || '').toLowerCase().trim();
+    const tipoFilt = document.getElementById('sugFilterTipo').value;
+    const sortOrder = document.getElementById('sugSort').value;
+
+    let filtered = sugState.items.filter(s => {
+      const matchSearch = !search || (s.name || '').toLowerCase().includes(search) || (s.email || '').toLowerCase().includes(search) || (s.message || '').toLowerCase().includes(search);
+      const matchTipo = !tipoFilt || s.type === tipoFilt;
+      return matchSearch && matchTipo;
+    });
+
+    filtered.sort((a, b) => {
+      const da = new Date(a.created_at || 0).getTime();
+      const db = new Date(b.created_at || 0).getTime();
+      return sortOrder === 'antiguo' ? da - db : db - da;
+    });
+
+    document.getElementById('sugCount').textContent = `${filtered.length} sugerencia(s) encontrada(s)`;
+
+    if (filtered.length === 0) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">✉️</div><div class="empty-text">${sugState.items.length === 0 ? 'Aún no hay sugerencias' : 'No se encontraron sugerencias con estos filtros'}</div></div>`;
+      return;
+    }
+
+    const perPage = sugState.perPage;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+    if (sugState.page > totalPages) sugState.page = totalPages;
+    const start = (sugState.page - 1) * perPage;
+    const pageItems = filtered.slice(start, start + perPage);
+
+    wrap.innerHTML = `
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Tipo</th>
+            <th>Mensaje</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pageItems.map(s => {
+            const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+            const msgFull = s.message || '';
+            const msgShort = msgFull.length > 60 ? escapeHtml(msgFull.slice(0, 60)) + '…' : escapeHtml(msgFull);
+            return `
+              <tr id="row_sug_${s.id}" style="cursor:pointer" onclick="openSugModal('${s.id}')">
+                <td style="white-space:nowrap">${fecha}</td>
+                <td><strong>${escapeHtml(s.name || 'Anónimo')}</strong></td>
+                <td>${escapeHtml(s.email || '—')}</td>
+                <td><span class="status-pill ${sugTipoClass(s.type)}">${sugTipoIcon(s.type)} ${escapeHtml(s.type || 'Otro')}</span></td>
+                <td style="max-width:280px">${msgShort}</td>
+                <td onclick="event.stopPropagation()">
+                  <div class="actions-cell">
+                    <button class="btn btn-sm btn-outline" onclick="openSugModal('${s.id}')">👁️ Ver</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteSugerencia('${s.id}')">🗑️</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="pagination">
+        <div class="pagination-info">Mostrando ${start + 1}–${Math.min(start + perPage, filtered.length)} de ${filtered.length}</div>
+        <div class="pagination-controls">
+          <button class="page-btn" onclick="sugChangePage(-1)" ${sugState.page <= 1 ? 'disabled' : ''}>‹</button>
+          ${sugPageNumbers(totalPages, sugState.page).map(n => n === '...'
+            ? `<span class="page-btn" style="cursor:default;border:none">…</span>`
+            : `<button class="page-btn ${n === sugState.page ? 'active' : ''}" onclick="sugGoToPage(${n})">${n}</button>`
+          ).join('')}
+          <button class="page-btn" onclick="sugChangePage(1)" ${sugState.page >= totalPages ? 'disabled' : ''}>›</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function sugChangePage(delta) {
+    sugState.page += delta;
+    renderSugerenciasTable();
+  }
+  function sugGoToPage(n) {
+    sugState.page = n;
+    renderSugerenciasTable();
+  }
+
+  function openSugModal(id) {
+    const s = sugState.items.find(x => String(x.id) === String(id));
+    if (!s) return;
+    const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : '—';
+    document.getElementById('sugModalBody').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="status-section">
+          <div class="status-section-title">Fecha</div>
+          <div style="font-size:13.5px;color:var(--text)">${fecha}</div>
+        </div>
+        <div class="form-row">
+          <div class="status-section">
+            <div class="status-section-title">Nombre</div>
+            <div style="font-size:13.5px;color:var(--text)">${escapeHtml(s.name || 'Anónimo')}</div>
+          </div>
+          <div class="status-section">
+            <div class="status-section-title">Correo</div>
+            <div style="font-size:13.5px;color:var(--text)">${escapeHtml(s.email || '—')}</div>
+          </div>
+        </div>
+        <div class="status-section">
+          <div class="status-section-title">Tipo</div>
+          <span class="status-pill ${sugTipoClass(s.type)}">${sugTipoIcon(s.type)} ${escapeHtml(s.type || 'Otro')}</span>
+        </div>
+        <div class="status-section">
+          <div class="status-section-title">Mensaje</div>
+          <div style="font-size:13.5px;color:var(--text);line-height:1.6;white-space:pre-wrap">${escapeHtml(s.message || '')}</div>
+        </div>
+      </div>
+    `;
+    document.getElementById('sugModalDeleteBtn').onclick = () => { closeModal('sugModal'); deleteSugerencia(s.id); };
+    document.getElementById('sugModal').classList.add('open');
+  }
+
+  async function deleteSugerencia(id) {
+    if (!confirm('¿Estás segura de eliminar esta sugerencia? Esta acción no se puede deshacer.')) return;
+    if (!supabaseClient) { showToast('Servicio no disponible en este momento', 'error'); return; }
+    try {
+      const { error } = await supabaseClient.from('suggestions').delete().eq('id', id);
+      if (error) throw error;
+      sugState.items = sugState.items.filter(x => String(x.id) !== String(id));
+      renderSugerenciasTable();
+      showToast('Sugerencia eliminada');
+    } catch (e) {
+      console.warn('Error al eliminar sugerencia:', e);
+      showToast('No se pudo eliminar la sugerencia', 'error');
+    }
+  }
+
   function showToast(msg, type = '') {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
