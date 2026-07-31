@@ -191,6 +191,43 @@ header {
 .btn-wishlist-float.fav-pop { animation: favPop 0.35s ease; }
 @keyframes favPop { 0% { transform: scale(1); } 35% { transform: scale(1.3); } 60% { transform: scale(0.92); } 100% { transform: scale(1); } }
 
+/* ══════════════════════════════════════════
+   COMPARTIR PRODUCTO
+══════════════════════════════════════════ */
+.btn-share-float { left: 12px; right: auto; }
+.pd-btn-share {
+  width: 100%; min-height: 46px; border-radius: var(--radius-btn); background: transparent; color: var(--text-main);
+  border: 1px solid var(--border-color); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;
+  cursor: pointer; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px;
+}
+.pd-btn-share:hover { border-color: var(--primary); color: var(--primary); }
+.pd-btn-share svg { width: 15px; height: 15px; }
+
+.share-modal { max-width: 360px !important; }
+.share-options { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.share-option-btn {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: var(--radius-btn);
+  border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main); font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-align: left;
+}
+.share-option-btn:hover { border-color: var(--primary); background: var(--support); }
+.share-option-btn:active { transform: scale(0.98); }
+.share-option-icon { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.share-option-icon svg { width: 17px; height: 17px; fill: white; }
+.share-icon-whatsapp { background: #25D366; }
+.share-icon-facebook { background: #1877F2; }
+.share-icon-copy { background: var(--text-main); }
+.share-icon-copy svg { fill: none; }
+
+.share-toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+  background: var(--text-main); color: white; padding: 12px 22px; border-radius: var(--radius-btn);
+  font-size: 13px; font-weight: 500; box-shadow: var(--shadow-hover); z-index: 2000; opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.share-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (max-width: 640px) { .share-toast { left: 16px; right: 16px; transform: translateY(20px); text-align: center; } .share-toast.visible { transform: translateY(0); } }
+
 .card-info { padding: 16px 18px 20px; display: flex; flex-direction: column; flex: 1; text-align: left; }
 .card-category { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary); margin-bottom: 4px; font-weight: 500; }
 .card-name { font-family: var(--font-heading); font-size: 16px; font-weight: 500; color: var(--text-main); line-height: 1.3; margin-bottom: 8px; }
@@ -480,6 +517,7 @@ let FAVORITOS = [];
 let appliedCoupon = null;
 let pdCurrentSlide = 0, pdImages = [], pdCurrentProd = null;
 let pdSelectedVariante = null;
+let shareCurrentProd = null;
 
 function waLink(msg) { return `https://wa.me/${TIENDA.whatsapp}?text=${encodeURIComponent(msg)}`; }
 function esc(str) { return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/'/g,'&#39;'); }
@@ -516,6 +554,7 @@ async function init() {
     buildUI(); 
     loadCartFromStorage();
     loadFavoritesFromStorage();
+    openProductFromUrlIfPresent();
   } catch(e) { 
     console.error("Error inicializando:", e); 
   }
@@ -683,6 +722,9 @@ function buildCard(p) {
       ${imgHtml}
       <button class="btn-wishlist-float${favClass}" data-pid="${p.id}" onclick="event.stopPropagation(); toggleFavorite('${p.id}', this)" title="Guardar en favoritos">
         <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+      </button>
+      <button class="btn-wishlist-float btn-share-float" onclick="event.stopPropagation(); openShareMenu('${p.id}')" title="Compartir producto">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
       </button>
     </div>
     <div class="card-info">
@@ -857,6 +899,10 @@ function renderPDInfo(p) {
     ${tonosHtml}
     <div class="pd-divider"></div>
     ${actionsHtml}
+    <button class="pd-btn-share" onclick="openShareMenu('${p.id}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+      Compartir
+    </button>
     <div class="pd-divider"></div>
     <div id="pdReviewsSection">Cargando reseñas...</div>
   `;
@@ -1035,6 +1081,92 @@ function renderFavoritesView() {
     return;
   }
   favProds.forEach(p => grid.appendChild(buildCard(p)));
+}
+
+// ─── COMPARTIR PRODUCTO ───
+
+// Genera el enlace directo al producto reutilizando su ID (mismo identificador que usa openPD/PRODUCTOS)
+function buildProductShareUrl(pid) {
+  const url = new URL(window.location.href);
+  url.hash = '';
+  url.searchParams.set('producto', pid);
+  return url.toString();
+}
+
+// Si la página se abre con ?producto=ID, abre directamente ese producto (reutiliza openPD, sin lógica nueva de catálogo)
+function openProductFromUrlIfPresent() {
+  try {
+    const pid = new URLSearchParams(window.location.search).get('producto');
+    if (pid && PRODUCTOS.some(p => p.id === pid)) openPD(pid);
+  } catch(e) {}
+}
+
+function openShareMenu(pid) {
+  const p = PRODUCTOS.find(x => x.id === pid);
+  if (!p) return;
+  shareCurrentProd = p;
+  document.getElementById('shareProdName').textContent = p.nombre;
+  document.getElementById('shareOverlay').classList.add('open');
+}
+
+function closeShareMenu() {
+  document.getElementById('shareOverlay').classList.remove('open');
+}
+
+function shareViaWhatsApp() {
+  if (!shareCurrentProd) return;
+  const url = buildProductShareUrl(shareCurrentProd.id);
+  const msg = `Mira este producto que encontré en Neli's Makeup 💄 ${url}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+  closeShareMenu();
+}
+
+function shareViaFacebook() {
+  if (!shareCurrentProd) return;
+  const url = buildProductShareUrl(shareCurrentProd.id);
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'noopener,width=600,height=520');
+  closeShareMenu();
+}
+
+async function shareCopyLink() {
+  if (!shareCurrentProd) return;
+  const url = buildProductShareUrl(shareCurrentProd.id);
+  const ok = await copyTextToClipboard(url);
+  closeShareMenu();
+  showShareToast(ok ? 'Enlace copiado correctamente.' : 'No se pudo copiar el enlace.');
+}
+
+// Copia al portapapeles; si el navegador no soporta la API moderna, usa un textarea temporal como respaldo
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch(e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch(e) { return false; }
+}
+
+let shareToastTimeout = null;
+function showShareToast(msg) {
+  const toast = document.getElementById('shareToast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  clearTimeout(shareToastTimeout);
+  shareToastTimeout = setTimeout(() => toast.classList.remove('visible'), 2800);
 }
 
 // ─── GESTIÓN DE CARRITO (CART) ───
@@ -1739,6 +1871,30 @@ window.addEventListener('DOMContentLoaded', init);
     <div class="catalog-section" id="favoritesGrid" style="margin-bottom:0"></div>
   </div>
 </div>
+
+<div class="pd-overlay" id="shareOverlay" onclick="if(event.target===this) closeShareMenu()">
+  <div class="pd-modal share-modal" id="shareModal" style="flex-direction:column;padding:30px 28px">
+    <button class="pd-close-btn" onclick="closeShareMenu()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    <h3 style="font-family:var(--font-heading);font-weight:400;margin:0 0 4px">Compartir producto</h3>
+    <p style="font-size:13px;color:var(--text-sec);margin:0 0 4px;padding-right:30px" id="shareProdName"></p>
+    <div class="share-options">
+      <button class="share-option-btn" onclick="shareViaWhatsApp()">
+        <span class="share-option-icon share-icon-whatsapp"><svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.004 2.003c-5.514 0-9.997 4.483-9.997 9.997 0 1.762.464 3.484 1.346 5.001L2 22l5.116-1.341a9.958 9.958 0 0 0 4.888 1.28h.004c5.514 0 9.997-4.483 9.997-9.997 0-2.671-1.04-5.182-2.928-7.07a9.93 9.93 0 0 0-7.073-2.869zm0 18.174h-.003a8.19 8.19 0 0 1-4.166-1.14l-.299-.177-3.037.797.81-2.96-.194-.304a8.19 8.19 0 0 1-1.26-4.377c0-4.522 3.68-8.201 8.204-8.201 2.19 0 4.25.854 5.799 2.404a8.144 8.144 0 0 1 2.399 5.802c-.001 4.523-3.68 8.156-8.253 8.156z"/></svg></span>
+        WhatsApp
+      </button>
+      <button class="share-option-btn" onclick="shareViaFacebook()">
+        <span class="share-option-icon share-icon-facebook"><svg viewBox="0 0 24 24"><path d="M22 12.06C22 6.505 17.523 2 12 2S2 6.505 2 12.06c0 5.022 3.657 9.184 8.438 9.94v-7.03H7.898v-2.91h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562v1.876h2.773l-.443 2.91h-2.33V22c4.78-.756 8.437-4.918 8.437-9.94z"/></svg></span>
+        Facebook
+      </button>
+      <button class="share-option-btn" onclick="shareCopyLink()">
+        <span class="share-option-icon share-icon-copy"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span>
+        Copiar enlace
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="share-toast" id="shareToast"></div>
 
 </body>
 </html>
