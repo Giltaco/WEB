@@ -186,6 +186,10 @@ header {
 }
 .btn-wishlist-float:hover { color: var(--primary); }
 .btn-wishlist-float svg { width: 18px; height: 18px; stroke-width: 1.5; fill: none; stroke: currentColor; }
+.btn-wishlist-float.active { color: var(--primary); }
+.btn-wishlist-float.active svg { fill: var(--primary); }
+.btn-wishlist-float.fav-pop { animation: favPop 0.35s ease; }
+@keyframes favPop { 0% { transform: scale(1); } 35% { transform: scale(1.3); } 60% { transform: scale(0.92); } 100% { transform: scale(1); } }
 
 .card-info { padding: 16px 18px 20px; display: flex; flex-direction: column; flex: 1; text-align: left; }
 .card-category { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--primary); margin-bottom: 4px; font-weight: 500; }
@@ -471,6 +475,8 @@ let TIENDA = {
 
 let CATEGORIAS = [], PRODUCTOS = [], sb = null;
 let cart = [];
+const FAV_STORAGE_KEY = 'ff_favorites';
+let FAVORITOS = [];
 let appliedCoupon = null;
 let pdCurrentSlide = 0, pdImages = [], pdCurrentProd = null;
 let pdSelectedVariante = null;
@@ -509,6 +515,7 @@ async function init() {
     
     buildUI(); 
     loadCartFromStorage();
+    loadFavoritesFromStorage();
   } catch(e) { 
     console.error("Error inicializando:", e); 
   }
@@ -669,10 +676,12 @@ function buildCard(p) {
   const ratingValue = p.rating ? parseFloat(p.rating).toFixed(1) : "5.0";
   const reviewsCount = p.reviews_count || 0;
   
+  const favClass = isFavorite(p.id) ? ' active' : '';
+
   card.innerHTML = `
     <div class="card-img-wrap">
       ${imgHtml}
-      <button class="btn-wishlist-float" onclick="event.stopPropagation()" title="Guardar en favoritos">
+      <button class="btn-wishlist-float${favClass}" data-pid="${p.id}" onclick="event.stopPropagation(); toggleFavorite('${p.id}', this)" title="Guardar en favoritos">
         <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
       </button>
     </div>
@@ -946,6 +955,86 @@ async function submitReview(productId) {
     btn.disabled = false;
     btn.textContent = 'Enviar reseña';
   }
+}
+
+// ─── GESTIÓN DE FAVORITOS (LocalStorage hoy; capa lista para sincronizar con Supabase cuando exista login) ───
+
+// Capa de persistencia: si en el futuro hay autenticación, solo hay que reemplazar
+// estas dos funciones por llamadas a Supabase (ej. tabla "favoritos" por usuario)
+// sin tocar el resto de la lógica (toggleFavorite, syncFavoritesUI, renderFavoritesView, etc.)
+function favoritesStorageGet() {
+  try { return JSON.parse(localStorage.getItem(FAV_STORAGE_KEY) || '[]'); } catch(e) { return []; }
+}
+function favoritesStorageSet(ids) {
+  try { localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(ids)); } catch(e) {}
+}
+
+function loadFavoritesFromStorage() {
+  const saved = favoritesStorageGet();
+  // Requisito 8: descarta automáticamente productos que ya no existen en el catálogo
+  // Requisito 7: sin duplicados
+  const valid = [...new Set(saved)].filter(id => PRODUCTOS.some(p => p.id === id));
+  FAVORITOS = valid;
+  if (valid.length !== saved.length) favoritesStorageSet(FAVORITOS);
+  syncFavoritesUI();
+}
+
+function isFavorite(pid) {
+  return FAVORITOS.includes(pid);
+}
+
+function toggleFavorite(pid, btnEl) {
+  if (isFavorite(pid)) {
+    FAVORITOS = FAVORITOS.filter(id => id !== pid);
+  } else if (PRODUCTOS.some(p => p.id === pid)) {
+    FAVORITOS = [...new Set([...FAVORITOS, pid])];
+  }
+  favoritesStorageSet(FAVORITOS);
+  syncFavoritesUI();
+
+  if (btnEl) {
+    btnEl.classList.remove('fav-pop');
+    void btnEl.offsetWidth; // fuerza reinicio de la animación
+    btnEl.classList.add('fav-pop');
+  }
+}
+
+// Mantiene sincronizados: corazones de todas las tarjetas visibles, contador del header y vista "Mis Favoritos"
+function syncFavoritesUI() {
+  document.querySelectorAll('.btn-wishlist-float[data-pid]').forEach(btn => {
+    btn.classList.toggle('active', isFavorite(btn.dataset.pid));
+  });
+
+  const badge = document.getElementById('favBadge');
+  if (badge) {
+    badge.textContent = FAVORITOS.length;
+    badge.classList.toggle('visible', FAVORITOS.length > 0);
+  }
+
+  const favOverlay = document.getElementById('favoritesOverlay');
+  if (favOverlay && favOverlay.classList.contains('open')) renderFavoritesView();
+}
+
+function openFavoritesModal() {
+  renderFavoritesView();
+  document.getElementById('favoritesOverlay').classList.add('open');
+}
+
+function closeFavoritesModal() {
+  document.getElementById('favoritesOverlay').classList.remove('open');
+}
+
+function renderFavoritesView() {
+  const grid = document.getElementById('favoritesGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  const favProds = FAVORITOS.map(id => PRODUCTOS.find(p => p.id === id)).filter(Boolean);
+  if (favProds.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-sec)">Aún no tienes productos en Favoritos.<br>Toca el ♡ en cualquier producto para guardarlo aquí.</div>`;
+    return;
+  }
+  favProds.forEach(p => grid.appendChild(buildCard(p)));
 }
 
 // ─── GESTIÓN DE CARRITO (CART) ───
@@ -1274,8 +1363,9 @@ window.addEventListener('DOMContentLoaded', init);
     <button class="icon-btn" onclick="openOrdersModal()" title="Mis pedidos">
       <svg viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6M9 8h6M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"></path></svg>
     </button>
-    <button class="icon-btn" title="Favoritos">
+    <button class="icon-btn" onclick="openFavoritesModal()" title="Favoritos" id="favBtn">
       <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+      <span class="cart-badge" id="favBadge">0</span>
     </button>
     <button class="icon-btn" onclick="openCart()" title="Bolsa de compras">
       <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
@@ -1638,6 +1728,15 @@ window.addEventListener('DOMContentLoaded', init);
     <div class="cart-form-field"><input type="tel" id="ordersPhone" placeholder="Teléfono / WhatsApp"></div>
     <button class="btn-checkout" id="ordersSearchBtn" onclick="buscarMisPedidos()" style="margin-bottom:20px">Buscar</button>
     <div id="ordersResults"></div>
+  </div>
+</div>
+
+<div class="pd-overlay" id="favoritesOverlay">
+  <div class="pd-modal" id="favoritesModal" style="flex-direction:column;max-width:920px;padding:36px 32px;overflow-y:auto">
+    <button class="pd-close-btn" onclick="closeFavoritesModal()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    <h3 style="font-family:var(--font-heading);font-weight:400;margin:0 0 4px">Mis Favoritos</h3>
+    <p style="font-size:13px;color:var(--text-sec);margin:0 0 20px">Los productos que guardaste con ♡</p>
+    <div class="catalog-section" id="favoritesGrid" style="margin-bottom:0"></div>
   </div>
 </div>
 
