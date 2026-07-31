@@ -274,6 +274,53 @@ header {
 .btn-checkout:hover { background: var(--primary); }
 
 /* ══════════════════════════════════════════
+   NUESTRA TIENDA — UBICACIÓN
+══════════════════════════════════════════ */
+.store-section {
+  max-width: 1400px; margin: 0 auto; padding: 70px 1.5rem 90px;
+  opacity: 0; transform: translateY(28px);
+  transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1);
+}
+.store-section.store-in-view { opacity: 1; transform: translateY(0); }
+
+.store-header { text-align: center; max-width: 620px; margin: 0 auto 40px; }
+.store-eyebrow { font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--primary); font-weight: 600; margin-bottom: 14px; display: block; }
+.store-title { font-family: var(--font-heading); font-size: clamp(28px, 4vw, 40px); font-weight: 400; color: var(--text-main); margin-bottom: 14px; }
+.store-desc { font-size: 14.5px; color: var(--text-sec); line-height: 1.7; font-weight: 300; }
+
+.store-map-wrap { width: 100%; border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-hover); border: 1px solid var(--border-color); margin-bottom: 32px; }
+.store-map { display: block; width: 100%; height: 480px; }
+
+.store-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-bottom: 40px; }
+.store-info-item {
+  display: flex; align-items: flex-start; gap: 14px; background: var(--surface); border: 1px solid var(--border-color);
+  border-radius: var(--radius-card); padding: 22px; box-shadow: var(--shadow-soft); transition: all 0.3s ease;
+}
+.store-info-item:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+.store-info-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
+.store-info-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-sec); font-weight: 600; margin-bottom: 5px; }
+.store-info-value { font-size: 13.5px; color: var(--text-main); line-height: 1.6; font-weight: 400; }
+
+.store-directions-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 340px; margin: 0 auto;
+  height: 56px; background: var(--text-main); color: white; text-decoration: none; border-radius: var(--radius-btn);
+  font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; transition: all 0.3s ease;
+  box-shadow: 0 8px 24px rgba(27,27,27,0.14);
+}
+.store-directions-btn:hover { background: var(--primary); transform: translateY(-2px); box-shadow: 0 10px 28px rgba(230,80,154,0.28); }
+.store-directions-btn svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+
+@media (max-width: 1024px) {
+  .store-map { height: 420px; }
+}
+@media (max-width: 768px) {
+  .store-section { padding: 50px 1rem 60px; }
+  .store-map { height: 320px; }
+  .store-info-grid { grid-template-columns: 1fr; gap: 14px; }
+  .store-directions-btn { max-width: 100%; height: 52px; }
+}
+
+/* ══════════════════════════════════════════
    FOOTER MINIMALISTA ELEGANTE
 ══════════════════════════════════════════ */
 .site-footer { background: var(--surface); border-top: 1px solid var(--border-color); padding: 60px 1.5rem 32px; }
@@ -1196,6 +1243,81 @@ window.addEventListener('DOMContentLoaded', init);
     <div id="catalogoRoot"></div>
   </main>
 </div>
+
+<!-- ══════════════════════════════════════════
+     NUESTRA TIENDA — UBICACIÓN
+     Puntos editables marcados con "EDITAR AQUÍ"
+══════════════════════════════════════════ -->
+<section class="store-section" id="nuestraTienda">
+  <div class="store-header">
+    <span class="store-eyebrow">Visítanos</span>
+    <h2 class="store-title">Nuestra Tienda</h2>
+    <p class="store-desc">Te esperamos con gusto para ayudarte a encontrar tu producto ideal. Ven y descubre nuestra colección en persona.</p>
+  </div>
+
+  <div class="store-map-wrap">
+    <!-- EDITAR AQUÍ: reemplaza el src por el "Insertar mapa" (embed) de tu ubicación en Google Maps -->
+    <iframe class="store-map" id="storeMapEmbed"
+      src="https://www.google.com/maps?q=Neli%27s%20Make%27up&output=embed"
+      width="100%" height="480" style="border:0;" allowfullscreen loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade" title="Ubicación de Neli's Make'up">
+    </iframe>
+  </div>
+
+  <div class="store-info-grid">
+    <div class="store-info-item">
+      <span class="store-info-icon">📍</span>
+      <div>
+        <div class="store-info-label">Dirección</div>
+        <!-- EDITAR AQUÍ: dirección -->
+        <div class="store-info-value" id="storeAddress">Av. Ejemplo 123, Col. Centro, Tu Ciudad, CP 00000</div>
+      </div>
+    </div>
+    <div class="store-info-item">
+      <span class="store-info-icon">📞</span>
+      <div>
+        <div class="store-info-label">Teléfono</div>
+        <!-- EDITAR AQUÍ: teléfono -->
+        <div class="store-info-value" id="storePhone">+52 877 139 2697</div>
+      </div>
+    </div>
+    <div class="store-info-item">
+      <span class="store-info-icon">🕒</span>
+      <div>
+        <div class="store-info-label">Horarios</div>
+        <!-- EDITAR AQUÍ: horarios -->
+        <div class="store-info-value" id="storeHours">Lun – Sáb: 10:00 AM – 8:00 PM<br>Dom: 11:00 AM – 4:00 PM</div>
+      </div>
+    </div>
+    <div class="store-info-item">
+      <span class="store-info-icon">🚗</span>
+      <div>
+        <div class="store-info-label">Indicaciones</div>
+        <!-- EDITAR AQUÍ: cómo llegar / referencias -->
+        <div class="store-info-value" id="storeDirectionsHint">A 2 cuadras de la plaza principal, frente a la farmacia.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDITAR AQUÍ: reemplaza el href por el enlace "Cómo llegar" de Google Maps a tu ubicación -->
+  <a href="https://www.google.com/maps/search/?api=1&query=Neli%27s+Make%27up" target="_blank" rel="noopener" class="store-directions-btn" id="storeDirectionsBtn">
+    Cómo llegar
+    <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+  </a>
+</section>
+<script>
+(function(){
+  var s = document.getElementById('nuestraTienda');
+  if (!s) return;
+  if (!('IntersectionObserver' in window)) { s.classList.add('store-in-view'); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) { entry.target.classList.add('store-in-view'); io.unobserve(entry.target); }
+    });
+  }, { threshold: 0.15 });
+  io.observe(s);
+})();
+</script>
 
 <footer class="site-footer">
   <div class="footer-main">
