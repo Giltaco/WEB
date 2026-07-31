@@ -356,6 +356,69 @@ header {
 .floating-wa svg { width: 30px; height: 30px; fill: currentColor; }
 
 /* ══════════════════════════════════════════
+   BUZÓN DE SUGERENCIAS
+══════════════════════════════════════════ */
+.suggest-fab {
+  position: fixed; bottom: 86px; right: 20px; z-index: 799;
+  width: 50px; height: 50px; border-radius: 50%;
+  background: var(--surface); color: var(--primary); border: 1px solid var(--border-color);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-hover); cursor: pointer; transition: all 0.3s ease;
+}
+.suggest-fab:hover { background: var(--support); transform: translateY(-2px); }
+.suggest-fab:active { transform: scale(0.92); }
+.suggest-fab svg { width: 23px; height: 23px; stroke: currentColor; stroke-width: 1.6; fill: none; }
+
+.suggest-title { font-family: var(--font-heading); font-size: 24px; font-weight: 400; color: var(--text-main); margin-bottom: 6px; }
+.suggest-subtitle { font-size: 13px; color: var(--text-sec); line-height: 1.55; margin-bottom: 22px; }
+
+.suggest-field-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-sec); font-weight: 600; margin-bottom: 6px; display: block; }
+
+.suggest-type-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.suggest-type-pill { position: relative; border: 1px solid var(--border-color); font-size: 12.5px; padding: 9px 14px; min-height: 40px; }
+.suggest-type-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.suggest-type-pill.active { background: var(--support); color: var(--primary); font-weight: 500; border-color: var(--primary); }
+
+.cart-form-field textarea, .cart-form-field select {
+  width: 100%; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 10px;
+  font-size: 14px; outline: none; background: var(--surface); transition: border-color 0.3s; font-family: inherit; color: var(--text-main);
+}
+.cart-form-field textarea:focus, .cart-form-field select:focus { border-color: var(--primary); }
+.cart-form-field textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+
+.suggest-char-count { text-align: right; font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+.suggest-char-count.limit-near { color: var(--offer); }
+
+.suggest-error { font-size: 11.5px; color: var(--offer); margin-top: -8px; margin-bottom: 12px; display: none; }
+.suggest-error.show { display: block; }
+.cart-form-field input.suggest-invalid, .cart-form-field textarea.suggest-invalid { border-color: var(--offer); }
+
+.suggest-submit-btn { position: relative; margin-top: 4px; }
+.suggest-submit-btn[disabled] { opacity: 0.75; cursor: not-allowed; }
+.suggest-submit-btn .suggest-spinner {
+  width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+  border-radius: 50%; animation: suggestSpin 0.7s linear infinite; display: none;
+}
+.suggest-submit-btn[disabled] .suggest-spinner { display: inline-block; }
+.suggest-submit-btn[disabled] .suggest-btn-label { display: none; }
+@keyframes suggestSpin { to { transform: rotate(360deg); } }
+
+.suggest-success { text-align: center; padding: 16px 4px 4px; animation: suggestFadeUp 0.4s ease both; }
+.suggest-success-icon {
+  width: 64px; height: 64px; border-radius: 50%; background: var(--support); color: var(--primary);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;
+}
+.suggest-success-icon svg { width: 30px; height: 30px; stroke: currentColor; stroke-width: 2; fill: none; }
+.suggest-success h3 { font-family: var(--font-heading); font-size: 20px; font-weight: 400; margin-bottom: 8px; color: var(--text-main); }
+.suggest-success p { font-size: 13.5px; color: var(--text-sec); line-height: 1.6; }
+@keyframes suggestFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 480px) {
+  .suggest-fab { bottom: 82px; right: 16px; width: 46px; height: 46px; }
+  .suggest-fab svg { width: 21px; height: 21px; }
+}
+
+/* ══════════════════════════════════════════
    REGLAS MEDIA QUERIES
 ══════════════════════════════════════════ */
 @media (max-width: 1024px) {
@@ -1270,7 +1333,7 @@ window.addEventListener('DOMContentLoaded', init);
       <div>
         <div class="store-info-label">Dirección</div>
         <!-- EDITAR AQUÍ: dirección -->
-        <div class="store-info-value" id="storeAddress">Salomé 905, Noblasi Secc III, 26233 Cd Acuña, Coah., Mexico</div>
+        <div class="store-info-value" id="storeAddress">Av. Ejemplo 123, Col. Centro, Tu Ciudad, CP 00000</div>
       </div>
     </div>
     <div class="store-info-item">
@@ -1294,7 +1357,7 @@ window.addEventListener('DOMContentLoaded', init);
       <div>
         <div class="store-info-label">Indicaciones</div>
         <!-- EDITAR AQUÍ: cómo llegar / referencias -->
-        <div class="store-info-value" id="storeDirectionsHint">Informacion no disponible.</div>
+        <div class="store-info-value" id="storeDirectionsHint">A 2 cuadras de la plaza principal, frente a la farmacia.</div>
       </div>
     </div>
   </div>
@@ -1358,6 +1421,169 @@ window.addEventListener('DOMContentLoaded', init);
 <a href="#" id="floatingWaBtn" target="_blank" class="floating-wa" title="Contáctanos en WhatsApp">
   <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a5.8 5.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
 </a>
+
+<!-- Botón flotante: Buzón de Sugerencias -->
+<button type="button" class="suggest-fab" id="suggestFab" onclick="openSuggestBox()" title="Buzón de sugerencias" aria-label="Abrir buzón de sugerencias">
+  <svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M15.09 14c.396-.813 1.02-1.507 1.7-2.153a6.5 6.5 0 1 0-9.58-.01c.68.646 1.304 1.34 1.7 2.153.318.652.474 1.36.59 2H14.5c.116-.64.272-1.348.59-2z"/></svg>
+</button>
+
+<!-- Modal: Buzón de Sugerencias -->
+<div class="pd-overlay" id="suggestOverlay">
+  <div class="pd-modal" id="suggestModal" style="flex-direction:column;max-width:480px;padding:36px 32px;overflow-y:auto">
+    <button class="pd-close-btn" onclick="closeSuggestBox()" aria-label="Cerrar"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+
+    <div id="suggestFormWrap">
+      <div class="suggest-title">Buzón de Sugerencias</div>
+      <p class="suggest-subtitle">Tu opinión nos ayuda a mejorar. Cuéntanos qué piensas, sin compromiso.</p>
+
+      <div class="suggest-field-label">Tipo de comentario</div>
+      <div class="suggest-type-group" id="suggestTypeGroup">
+        <label class="filter-pill suggest-type-pill active" data-type="Sugerencia">
+          <input type="radio" name="suggestType" value="Sugerencia" checked>💡 Sugerencia
+        </label>
+        <label class="filter-pill suggest-type-pill" data-type="Reportar un error">
+          <input type="radio" name="suggestType" value="Reportar un error">🐞 Reportar error
+        </label>
+        <label class="filter-pill suggest-type-pill" data-type="Felicitación">
+          <input type="radio" name="suggestType" value="Felicitación">🎉 Felicitación
+        </label>
+        <label class="filter-pill suggest-type-pill" data-type="Otro">
+          <input type="radio" name="suggestType" value="Otro">✨ Otro
+        </label>
+      </div>
+
+      <div class="cart-form-field">
+        <label class="suggest-field-label" for="suggestName">Nombre (opcional)</label>
+        <input type="text" id="suggestName" placeholder="Tu nombre" maxlength="80">
+      </div>
+
+      <div class="cart-form-field">
+        <label class="suggest-field-label" for="suggestEmail">Correo electrónico (opcional)</label>
+        <input type="email" id="suggestEmail" placeholder="tu@correo.com" maxlength="120">
+        <div class="suggest-error" id="suggestEmailError">Ingresa un correo válido.</div>
+      </div>
+
+      <div class="cart-form-field">
+        <label class="suggest-field-label" for="suggestMessage">Mensaje *</label>
+        <textarea id="suggestMessage" placeholder="Escribe tu mensaje aquí..." maxlength="500" oninput="suggestUpdateCounter()"></textarea>
+        <div class="suggest-char-count" id="suggestCharCount">0 / 500</div>
+        <div class="suggest-error" id="suggestMessageError">Escribe un mensaje antes de enviar.</div>
+      </div>
+
+      <button type="button" class="btn-checkout suggest-submit-btn" id="suggestSubmitBtn" onclick="submitSuggestion()">
+        <span class="suggest-btn-label">Enviar sugerencia</span>
+        <span class="suggest-spinner"></span>
+      </button>
+    </div>
+
+    <div class="suggest-success" id="suggestSuccessWrap" style="display:none">
+      <div class="suggest-success-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h3>¡Gracias por tu mensaje!</h3>
+      <p>Hemos recibido tu comentario y lo tomaremos en cuenta para seguir mejorando.</p>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var suggestSb = null;
+  function getSuggestClient() {
+    if (suggestSb) return suggestSb;
+    try {
+      if (typeof supabase !== 'undefined' && typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined') {
+        suggestSb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }
+    } catch(e) { console.warn('Buzón de sugerencias: Supabase no disponible todavía.', e); }
+    return suggestSb;
+  }
+
+  window.openSuggestBox = function() {
+    document.getElementById('suggestOverlay').classList.add('open');
+    document.getElementById('suggestFormWrap').style.display = '';
+    document.getElementById('suggestSuccessWrap').style.display = 'none';
+  };
+  window.closeSuggestBox = function() {
+    document.getElementById('suggestOverlay').classList.remove('open');
+  };
+
+  var overlayEl = document.getElementById('suggestOverlay');
+  overlayEl.addEventListener('click', function(e){ if (e.target === overlayEl) closeSuggestBox(); });
+
+  document.querySelectorAll('.suggest-type-pill').forEach(function(pill){
+    pill.addEventListener('click', function(){
+      document.querySelectorAll('.suggest-type-pill').forEach(function(p){ p.classList.remove('active'); });
+      pill.classList.add('active');
+    });
+  });
+
+  window.suggestUpdateCounter = function() {
+    var ta = document.getElementById('suggestMessage');
+    var counter = document.getElementById('suggestCharCount');
+    var len = ta.value.length;
+    counter.textContent = len + ' / 500';
+    counter.classList.toggle('limit-near', len > 450);
+    if (len > 0) {
+      document.getElementById('suggestMessageError').classList.remove('show');
+      ta.classList.remove('suggest-invalid');
+    }
+  };
+
+  function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+  window.submitSuggestion = async function() {
+    var nameEl = document.getElementById('suggestName');
+    var emailEl = document.getElementById('suggestEmail');
+    var msgEl = document.getElementById('suggestMessage');
+    var typeEl = document.querySelector('input[name="suggestType"]:checked');
+    var emailErr = document.getElementById('suggestEmailError');
+    var msgErr = document.getElementById('suggestMessageError');
+    var btn = document.getElementById('suggestSubmitBtn');
+
+    var name = nameEl.value.trim();
+    var email = emailEl.value.trim();
+    var message = msgEl.value.trim();
+    var type = typeEl ? typeEl.value : 'Sugerencia';
+
+    var valid = true;
+    emailErr.classList.remove('show'); emailEl.classList.remove('suggest-invalid');
+    msgErr.classList.remove('show'); msgEl.classList.remove('suggest-invalid');
+
+    if (!message) { msgErr.classList.add('show'); msgEl.classList.add('suggest-invalid'); valid = false; }
+    if (email && !isValidEmail(email)) { emailErr.classList.add('show'); emailEl.classList.add('suggest-invalid'); valid = false; }
+    if (!valid) return;
+
+    btn.disabled = true;
+
+    var payload = { name: name || null, email: email || null, type: type, message: message };
+    var client = getSuggestClient();
+    var saved = false;
+
+    if (client) {
+      try {
+        var res = await client.from('suggestions').insert([payload]);
+        if (!res.error) saved = true;
+        else console.warn('No se pudo guardar en Supabase (¿existe la tabla "suggestions"?):', res.error.message);
+      } catch(e) { console.warn('Error al enviar la sugerencia a Supabase:', e); }
+    }
+
+    if (!saved) {
+      try {
+        var pending = JSON.parse(localStorage.getItem('nm_pending_suggestions') || '[]');
+        pending.push(Object.assign({}, payload, { created_at: new Date().toISOString() }));
+        localStorage.setItem('nm_pending_suggestions', JSON.stringify(pending));
+      } catch(e) {}
+    }
+
+    setTimeout(function(){
+      btn.disabled = false;
+      document.getElementById('suggestFormWrap').style.display = 'none';
+      document.getElementById('suggestSuccessWrap').style.display = '';
+      nameEl.value = ''; emailEl.value = ''; msgEl.value = '';
+      suggestUpdateCounter();
+      setTimeout(closeSuggestBox, 3200);
+    }, 550);
+  };
+})();
+</script>
 
 <div class="cart-overlay" id="cartOverlay" onclick="closeCart()"></div>
 <div class="cart-drawer" id="cartDrawer">
