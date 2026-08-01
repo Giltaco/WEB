@@ -346,6 +346,8 @@
   .bar-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--lav-600), var(--lav-400)); transition: width 0.6s cubic-bezier(.4,0,.2,1); }
   .bar-val { font-size: 10.5px; color: var(--text-soft); width: 30px; }
   .kpi-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+  .kpi-row-5 { grid-template-columns: repeat(5, 1fr); }
+  @media (max-width: 900px) { .kpi-row-5 { grid-template-columns: repeat(2, 1fr); } }
   .kpi-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
   .kpi-val { font-size: 22px; font-weight: 300; color: var(--lav-600); font-family: 'Playfair Display', serif; }
   .kpi-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-soft); margin-top: 4px; }
@@ -519,6 +521,9 @@
       </button>
       <button class="nav-item" onclick="showPage('cupones', this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2.41 12.41A2 2 0 0 1 2 11V4a2 2 0 0 1 2-2h7a2 2 0 0 1 1.41.59l8.18 8.18a2 2 0 0 1 0 2.83z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span> Cupones
+      </button>
+      <button class="nav-item" onclick="showPage('resenas', this)">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.2 21 12 17.77 5.8 21 7 14.14l-5-4.87 7.1-1.01L12 2z"/></svg></span> Reseñas
       </button>
       <div class="nav-section" style="margin-top:12px">Sistema</div>
       <button class="nav-item" onclick="showPage('auditlog', this)">
@@ -705,6 +710,43 @@
       </div>
       <div id="cupTableWrap">
         <div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">Cargando...</div></div>
+      </div>
+    </div>
+
+    <!-- RESEÑAS -->
+    <div class="page" id="page-resenas">
+      <div class="page-header">
+        <div><div class="page-title">Reseñas</div><div class="page-subtitle" id="resCount">Cargando...</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="resSearch" placeholder="Buscar por producto, cliente o comentario..." aria-label="Buscar reseñas" oninput="renderResenasTable()">
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="loadResenas()">↻ Actualizar</button>
+        </div>
+      </div>
+
+      <div class="kpi-row kpi-row-5" id="resStats">
+        <div class="kpi-box"><div class="kpi-val" id="resKpiTotal">—</div><div class="kpi-label">Total Reseñas</div></div>
+        <div class="kpi-box"><div class="kpi-val" id="resKpiProm">—</div><div class="kpi-label">Promedio ⭐</div></div>
+        <div class="kpi-box"><div class="kpi-val" style="color:var(--success)" id="resKpiAprobadas">—</div><div class="kpi-label">🟢 Aprobadas</div></div>
+        <div class="kpi-box"><div class="kpi-val" style="color:var(--agotado)" id="resKpiPendientes">—</div><div class="kpi-label">🟡 Pendientes</div></div>
+        <div class="kpi-box"><div class="kpi-val" style="color:var(--danger)" id="resKpiOcultas">—</div><div class="kpi-label">🔴 Ocultas</div></div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <button class="filter-tab active f-todos" onclick="setResenaFilter('todas', this)">Todas</button>
+        <button class="filter-tab f-en-proceso" onclick="setResenaFilter('pendiente', this)">🟡 Pendientes</button>
+        <button class="filter-tab f-completado" onclick="setResenaFilter('aprobada', this)">🟢 Aprobadas</button>
+        <button class="filter-tab f-nuevo" onclick="setResenaFilter('oculta', this)">🔴 Ocultas</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-body" style="padding:0;overflow:hidden">
+          <div id="resTableWrap">
+            <div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-text">Cargando...</div></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1052,6 +1094,22 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('cupModal')">Cancelar</button>
       <button class="btn btn-purple" onclick="saveCupon()">Guardar Cupón</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="resModal" role="dialog" aria-modal="true" aria-labelledby="resModalTitle">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <div class="modal-title" id="resModalTitle">Detalle de la reseña</div>
+      <button class="modal-close" onclick="closeModal('resModal')" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" id="resModalBody"></div>
+    <div class="modal-footer" style="flex-wrap:wrap">
+      <button class="btn btn-outline" onclick="closeModal('resModal')">Cerrar</button>
+      <button class="btn btn-sm" id="resModalAprobarBtn" style="background:var(--success);color:white">✅ Aprobar</button>
+      <button class="btn btn-sm" id="resModalOcultarBtn" style="background:var(--agotado);color:white">🙈 Ocultar</button>
+      <button class="btn btn-danger btn-sm" id="resModalEliminarBtn">🗑 Eliminar</button>
     </div>
   </div>
 </div>
@@ -1513,6 +1571,7 @@
       productos: 'Catálogo de Productos',
       categorias: 'Categorías',
       cupones: 'Cupones y Descuentos',
+      resenas: 'Reseñas de Clientes',
       auditlog: 'Registro de Auditoría',
       settings: 'Configuración del Sistema'
     };
@@ -1525,6 +1584,7 @@
     if (pageId === 'productos') renderProductosTable();
     if (pageId === 'categorias') renderCategoriasGrid();
     if (pageId === 'cupones') renderCuponesTable();
+    if (pageId === 'resenas') loadResenas();
     if (pageId === 'auditlog') renderAuditLog();
   }
 
@@ -2778,6 +2838,257 @@
   }
 
   /* ════ NOTIFICACIONES & TOAST ════ */
+  /* ════ RESEÑAS (MODERACIÓN) ════ */
+  const resState = { items: [], loading: false, error: false, page: 1, perPage: 8, filtroEstado: 'todas', currentId: null };
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  function resProducto(producto_id) {
+    return (state.products || []).find(p => p.id === producto_id) || null;
+  }
+
+  function resEstadoClass(estado) {
+    if (estado === 'aprobada') return 'status-activo';
+    if (estado === 'oculta') return 'status-oculto';
+    return 'status-agotado'; // pendiente
+  }
+  function resEstadoLabel(estado) {
+    if (estado === 'aprobada') return 'Aprobada';
+    if (estado === 'oculta') return 'Oculta';
+    return 'Pendiente';
+  }
+  function resStarsHtml(rating) {
+    const r = Math.round(parseFloat(rating) || 0);
+    let out = '';
+    for (let i = 1; i <= 5; i++) out += `<span style="color:${i <= r ? 'var(--warning)' : 'var(--border2)'}">★</span>`;
+    return out;
+  }
+
+  async function loadResenas() {
+    const wrap = document.getElementById('resTableWrap');
+    const countEl = document.getElementById('resCount');
+    resState.loading = true;
+    resState.error = false;
+    countEl.textContent = 'Cargando...';
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Cargando reseñas...</div></div>`;
+
+    if (!supabaseClient) {
+      resState.loading = false; resState.error = true;
+      countEl.textContent = 'Error al cargar';
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error al cargar: servicio no disponible en este momento</div></div>`;
+      return;
+    }
+
+    try {
+      // Se lee únicamente desde la tabla "resenas" ya existente, con la misma conexión del panel
+      const { data, error } = await supabaseClient.from('resenas').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      // Si una reseña aún no tiene estado asignado, se considera "pendiente" por defecto
+      resState.items = (data || []).map(r => ({ ...r, estado: r.estado || 'pendiente' }));
+      resState.page = 1;
+      resState.loading = false;
+      renderResenasStats();
+      renderResenasTable();
+    } catch(e) {
+      console.warn('Error al cargar reseñas:', e);
+      resState.loading = false;
+      resState.error = true;
+      countEl.textContent = 'Error al cargar';
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error al cargar las reseñas. Intenta de nuevo.</div></div>`;
+    }
+  }
+
+  function renderResenasStats() {
+    const items = resState.items;
+    const total = items.length;
+    const prom = total > 0 ? (items.reduce((s, r) => s + (parseFloat(r.rating) || 0), 0) / total) : 0;
+    const aprobadas = items.filter(r => r.estado === 'aprobada').length;
+    const pendientes = items.filter(r => r.estado === 'pendiente').length;
+    const ocultas = items.filter(r => r.estado === 'oculta').length;
+
+    document.getElementById('resKpiTotal').textContent = total;
+    document.getElementById('resKpiProm').textContent = total > 0 ? prom.toFixed(1) : '—';
+    document.getElementById('resKpiAprobadas').textContent = aprobadas;
+    document.getElementById('resKpiPendientes').textContent = pendientes;
+    document.getElementById('resKpiOcultas').textContent = ocultas;
+  }
+
+  function setResenaFilter(estado, btnEl) {
+    resState.filtroEstado = estado;
+    resState.page = 1;
+    document.querySelectorAll('#page-resenas .filter-tab').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    renderResenasTable();
+  }
+
+  function renderResenasTable() {
+    if (resState.error || resState.loading) return;
+    const wrap = document.getElementById('resTableWrap');
+    const search = (document.getElementById('resSearch').value || '').toLowerCase().trim();
+
+    let filtered = resState.items.filter(r => {
+      const matchEstado = resState.filtroEstado === 'todas' || r.estado === resState.filtroEstado;
+      if (!matchEstado) return false;
+      if (!search) return true;
+      const prod = resProducto(r.producto_id);
+      const haystack = `${prod ? prod.nombre : ''} ${r.cliente || ''} ${r.comentario || ''}`.toLowerCase();
+      return haystack.includes(search);
+    });
+
+    document.getElementById('resCount').textContent = `${filtered.length} reseña(s) encontrada(s)`;
+
+    if (filtered.length === 0) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-text">${resState.items.length === 0 ? 'Sin reseñas.' : 'No se encontraron reseñas con estos filtros'}</div></div>`;
+      return;
+    }
+
+    const perPage = resState.perPage;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+    if (resState.page > totalPages) resState.page = totalPages;
+    const start = (resState.page - 1) * perPage;
+    const pageItems = filtered.slice(start, start + perPage);
+
+    wrap.innerHTML = `
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Producto</th><th>Cliente</th><th>Calificación</th><th>Comentario</th><th>Estado</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pageItems.map(r => {
+            const prod = resProducto(r.producto_id);
+            const fecha = r.created_at ? new Date(r.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+            const comentarioTxt = r.comentario || '';
+            const comentarioCorto = comentarioTxt.length > 60 ? escapeHtml(comentarioTxt.slice(0, 60)) + '…' : (escapeHtml(comentarioTxt) || '—');
+            return `
+              <tr onclick="openResModal('${r.id}')" style="cursor:pointer">
+                <td style="white-space:nowrap">${fecha}</td>
+                <td><strong>${escapeHtml(prod ? prod.nombre : 'Producto eliminado')}</strong></td>
+                <td>${escapeHtml(r.cliente || 'Anónimo')}</td>
+                <td style="white-space:nowrap">${resStarsHtml(r.rating)}</td>
+                <td style="max-width:260px">${comentarioCorto}</td>
+                <td><span class="status-pill ${resEstadoClass(r.estado)}">${resEstadoLabel(r.estado)}</span></td>
+                <td onclick="event.stopPropagation()">
+                  <div class="actions-cell">
+                    <button class="btn btn-sm btn-outline" onclick="openResModal('${r.id}')">👁️ Ver</button>
+                    ${r.estado !== 'aprobada' ? `<button class="btn btn-sm" style="background:var(--success);color:white" onclick="moderarResena('${r.id}','aprobada')" title="Aprobar">✅</button>` : ''}
+                    ${r.estado !== 'oculta' ? `<button class="btn btn-sm" style="background:var(--agotado);color:white" onclick="moderarResena('${r.id}','oculta')" title="Ocultar">🙈</button>` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="eliminarResena('${r.id}')" title="Eliminar">🗑</button>
+                  </div>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="pagination">
+        <div class="pagination-info">Mostrando ${start + 1}–${Math.min(start + perPage, filtered.length)} de ${filtered.length}</div>
+        <div class="pagination-controls">
+          <button class="page-btn" onclick="resChangePage(-1)" ${resState.page <= 1 ? 'disabled' : ''}>‹</button>
+          ${resPageNumbers(totalPages, resState.page).map(n => n === '...'
+            ? `<span class="page-btn" style="cursor:default;border:none">…</span>`
+            : `<button class="page-btn ${n === resState.page ? 'active' : ''}" onclick="resGoToPage(${n})">${n}</button>`
+          ).join('')}
+          <button class="page-btn" onclick="resChangePage(1)" ${resState.page >= totalPages ? 'disabled' : ''}>›</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function resPageNumbers(total, current) {
+    const pages = [];
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= current - 1 && i <= current + 1)) pages.push(i);
+      else if (pages[pages.length - 1] !== '...') pages.push('...');
+    }
+    return pages;
+  }
+  function resChangePage(delta) { resState.page += delta; renderResenasTable(); }
+  function resGoToPage(n) { resState.page = n; renderResenasTable(); }
+
+  function openResModal(id) {
+    const r = resState.items.find(x => String(x.id) === String(id));
+    if (!r) return;
+    resState.currentId = id;
+    const prod = resProducto(r.producto_id);
+    const fecha = r.created_at ? new Date(r.created_at).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : '—';
+
+    document.getElementById('resModalBody').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:14px">
+        ${prod && prod.imagen ? `<img src="${escapeHtml(prod.imagen)}" alt="${escapeHtml(prod.nombre)}" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px">` : ''}
+        <div class="status-section">
+          <div class="status-section-title">Producto</div>
+          <div style="font-size:13.5px;color:var(--text)">${escapeHtml(prod ? prod.nombre : 'Producto eliminado')}</div>
+        </div>
+        <div class="form-row">
+          <div class="status-section">
+            <div class="status-section-title">Cliente</div>
+            <div style="font-size:13.5px;color:var(--text)">${escapeHtml(r.cliente || 'Anónimo')}</div>
+          </div>
+          <div class="status-section">
+            <div class="status-section-title">Fecha</div>
+            <div style="font-size:13.5px;color:var(--text)">${fecha}</div>
+          </div>
+        </div>
+        <div class="status-section">
+          <div class="status-section-title">Calificación</div>
+          <div style="font-size:18px">${resStarsHtml(r.rating)}</div>
+        </div>
+        <div class="status-section">
+          <div class="status-section-title">Comentario</div>
+          <div style="font-size:13.5px;color:var(--text);line-height:1.6;white-space:pre-wrap">${escapeHtml(r.comentario || '(Sin comentario)')}</div>
+        </div>
+        <div class="status-section">
+          <div class="status-section-title">Estado actual</div>
+          <span class="status-pill ${resEstadoClass(r.estado)}">${resEstadoLabel(r.estado)}</span>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('resModalAprobarBtn').onclick = () => moderarResena(id, 'aprobada', true);
+    document.getElementById('resModalOcultarBtn').onclick = () => moderarResena(id, 'oculta', true);
+    document.getElementById('resModalEliminarBtn').onclick = () => eliminarResena(id, true);
+    document.getElementById('resModal').classList.add('open');
+  }
+
+  async function moderarResena(id, nuevoEstado, fromModal = false) {
+    if (!supabaseClient) { showToast('Servicio no disponible en este momento', 'error'); return; }
+    try {
+      const { error } = await supabaseClient.from('resenas').update({ estado: nuevoEstado }).eq('id', id);
+      if (error) throw error;
+      const item = resState.items.find(x => String(x.id) === String(id));
+      if (item) item.estado = nuevoEstado;
+      renderResenasStats();
+      renderResenasTable();
+      if (fromModal) closeModal('resModal');
+      logAudit('resena', 'success', `Reseña ${nuevoEstado === 'aprobada' ? 'aprobada' : 'ocultada'} (id ${id})`);
+      showToast(nuevoEstado === 'aprobada' ? 'Reseña aprobada' : 'Reseña ocultada');
+    } catch(e) {
+      console.warn('Error al moderar reseña:', e);
+      showToast('No se pudo actualizar la reseña', 'error');
+    }
+  }
+
+  async function eliminarResena(id, fromModal = false) {
+    if (!confirm('¿Eliminar esta reseña? Esta acción no se puede deshacer.')) return;
+    if (!supabaseClient) { showToast('Servicio no disponible en este momento', 'error'); return; }
+    try {
+      const { error } = await supabaseClient.from('resenas').delete().eq('id', id);
+      if (error) throw error;
+      resState.items = resState.items.filter(x => String(x.id) !== String(id));
+      renderResenasStats();
+      renderResenasTable();
+      if (fromModal) closeModal('resModal');
+      logAudit('resena', 'warning', `Reseña eliminada (id ${id})`);
+      showToast('Reseña eliminada');
+    } catch(e) {
+      console.warn('Error al eliminar reseña:', e);
+      showToast('No se pudo eliminar la reseña', 'error');
+    }
+  }
+
   function showToast(msg, type = '') {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
