@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <style>
 /* ══════════════════════════════════════════
    DESIGN SYSTEM & VARIABLES RESPONSIVAS
@@ -171,9 +171,18 @@ header {
   background: var(--surface); border-radius: var(--radius-card); border: 1px solid var(--border-color);
   transition: all 0.3s ease; position: relative; display: flex; flex-direction: column;
   box-shadow: var(--shadow-soft); cursor: pointer; overflow: hidden;
+  content-visibility: auto; contain-intrinsic-size: 0 380px;
 }
 .card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); border-color: rgba(230,80,154, 0.3); }
 .card.agotado { opacity: 0.7; }
+
+.skeleton-card { pointer-events: none; }
+.skeleton-block, .skeleton-line {
+  background: linear-gradient(90deg, var(--bg-main) 25%, var(--border-color) 37%, var(--bg-main) 63%);
+  background-size: 400% 100%; animation: skeletonPulse 1.4s ease infinite;
+}
+.skeleton-line { height: 12px; border-radius: 4px; margin-bottom: 10px; }
+@keyframes skeletonPulse { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 
 .card-img-wrap { width: 100%; aspect-ratio: 1; position: relative; overflow: hidden; background: var(--bg-main); }
 .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
@@ -535,7 +544,31 @@ function toggleMobileSearch() {
 }
 
 // ─── LÓGICA DE TIENDA Y CONFIGURACIÓN DINÁMICA ───
+function renderSkeletonCards(count = 8) {
+  const root = document.getElementById('catalogoRoot');
+  if (!root) return;
+  const grid = document.createElement('div');
+  grid.className = 'catalog-section';
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) {
+    const sk = document.createElement('div');
+    sk.className = 'card skeleton-card';
+    sk.innerHTML = `
+      <div class="card-img-wrap skeleton-block"></div>
+      <div class="card-info">
+        <div class="skeleton-line" style="width:40%"></div>
+        <div class="skeleton-line" style="width:80%"></div>
+        <div class="skeleton-line" style="width:55%"></div>
+      </div>`;
+    frag.appendChild(sk);
+  }
+  grid.appendChild(frag);
+  root.innerHTML = '';
+  root.appendChild(grid);
+}
+
 async function init() {
+  renderSkeletonCards();
   try {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
@@ -550,6 +583,8 @@ async function init() {
     
     CATEGORIAS = catsRes.data || []; 
     PRODUCTOS = prodsRes.data || [];
+    // Precálculo único del índice de búsqueda (evita recalcularlo en cada tecla presionada)
+    PRODUCTOS.forEach(p => { p._searchIndex = (p.nombre + ' ' + (p.categorias?.nombre || '')).toLowerCase(); });
     
     buildUI(); 
     loadCartFromStorage();
@@ -559,10 +594,8 @@ async function init() {
     console.error("Error inicializando:", e); 
   }
   
-  setTimeout(() => { 
-    document.getElementById('loadingScreen').style.opacity = '0'; 
-    setTimeout(()=> document.getElementById('loadingScreen').style.display = 'none', 500); 
-  }, 400);
+  document.getElementById('loadingScreen').style.opacity = '0';
+  setTimeout(()=> document.getElementById('loadingScreen').style.display = 'none', 500);
 }
 
 function aplicarConfiguracionTienda(config) {
@@ -626,7 +659,11 @@ function buildUI() {
       <span class="filter-bubble-name">Todas</span>
     </div>
   `;
-  
+
+  // Se arma todo en fragmentos en memoria y se inserta al DOM una sola vez (evita reflow por cada categoría/tarjeta)
+  const fbFrag = document.createDocumentFragment();
+  const rootFrag = document.createDocumentFragment();
+
   CATEGORIAS.forEach(cat => {
     const catProds = PRODUCTOS.filter(p => p.categoria_id === cat.id);
     if (!catProds.length) return;
@@ -641,14 +678,14 @@ function buildUI() {
       <div class="filter-bubble-img"><img src="${esc(imgCat)}" alt="${esc(cat.nombre)}"></div>
       <span class="filter-bubble-name">${esc(cat.nombre)}</span>
     `;
-    fb.appendChild(bubble);
+    fbFrag.appendChild(bubble);
     
     // Crear la sección del catálogo
     const heading = document.createElement('div'); 
     heading.className = 'section-heading'; 
     heading.setAttribute('data-section', cat.id); 
     heading.innerHTML = `<h2>${esc(cat.nombre)}</h2>`; 
-    root.appendChild(heading);
+    rootFrag.appendChild(heading);
     
     const grid = document.createElement('div'); 
     grid.className = 'catalog-section'; 
@@ -657,9 +694,11 @@ function buildUI() {
     // Paginación: solo se renderiza el primer lote; el resto se carga bajo demanda
     CAT_PRODS[cat.id] = catProds;
     const firstBatch = catProds.slice(0, CATALOG_PAGE_SIZE);
-    firstBatch.forEach((p) => grid.appendChild(buildCard(p)));
+    const gridFrag = document.createDocumentFragment();
+    firstBatch.forEach((p) => gridFrag.appendChild(buildCard(p)));
+    grid.appendChild(gridFrag);
     CAT_SHOWN[cat.id] = firstBatch.length;
-    root.appendChild(grid);
+    rootFrag.appendChild(grid);
 
     if (catProds.length > CATALOG_PAGE_SIZE) {
       const loadMoreWrap = document.createElement('div');
@@ -667,9 +706,12 @@ function buildUI() {
       loadMoreWrap.setAttribute('data-loadmore', cat.id);
       loadMoreWrap.style.cssText = 'text-align:center;margin:8px 0 40px';
       loadMoreWrap.innerHTML = `<button class="hero-cta" style="border:none;cursor:pointer" onclick="cargarMasCategoria('${cat.id}')">Ver más ${esc(cat.nombre)}</button>`;
-      root.appendChild(loadMoreWrap);
+      rootFrag.appendChild(loadMoreWrap);
     }
   });
+
+  fb.appendChild(fbFrag);
+  root.appendChild(rootFrag);
 }
 
 function cargarMasCategoria(catId) {
@@ -678,7 +720,9 @@ function cargarMasCategoria(catId) {
   if (!grid) return;
   const shown = CAT_SHOWN[catId] || 0;
   const nextBatch = (CAT_PRODS[catId] || []).slice(shown, shown + CATALOG_PAGE_SIZE);
-  nextBatch.forEach(p => grid.appendChild(buildCard(p)));
+  const frag = document.createDocumentFragment();
+  nextBatch.forEach(p => frag.appendChild(buildCard(p)));
+  grid.appendChild(frag);
   CAT_SHOWN[catId] = shown + nextBatch.length;
   if (CAT_SHOWN[catId] >= (CAT_PRODS[catId] || []).length && wrap) {
     wrap.remove();
@@ -704,7 +748,7 @@ function buildCard(p) {
   card.setAttribute('data-search', (p.nombre + ' ' + (p.categorias?.nombre || '')).toLowerCase());
   
   const imgUrl = p.imagen_url || p.imagenes_extra?.[0] || '';
-  const imgHtml = imgUrl ? `<img src="${esc(imgUrl)}" loading="lazy" alt="${esc(p.nombre)}">` : `<div style="width:100%;height:100%;background:#eee;"></div>`;
+  const imgHtml = imgUrl ? `<img src="${esc(imgUrl)}" loading="lazy" decoding="async" alt="${esc(p.nombre)}">` : `<div style="width:100%;height:100%;background:#eee;"></div>`;
   const precio = parseFloat(p.precio) || 0;
   
   const priceHtml = isAgotado 
@@ -764,7 +808,14 @@ function filtrar(catId, btnEl) {
   loadMores.forEach(w => { w.style.display = (catId === 'todos' || w.dataset.loadmore === catId) ? 'block' : 'none'; });
 }
 
+let _searchDebounceTimer = null;
 function handleSearch(val) {
+  // Evita filtrar y re-renderizar en cada tecla; espera a que el usuario haga una pausa breve
+  clearTimeout(_searchDebounceTimer);
+  _searchDebounceTimer = setTimeout(() => performSearch(val), 200);
+}
+
+function performSearch(val) {
   const query = val.toLowerCase().trim();
   const sections = document.querySelectorAll('.section-heading');
   const grids = document.querySelectorAll('.catalog-section:not(#searchResultsGrid)');
@@ -792,14 +843,17 @@ function handleSearch(val) {
     document.getElementById('catalogoRoot').prepend(searchGrid);
   }
 
-  const matches = PRODUCTOS.filter(p => (p.nombre + ' ' + (p.categorias?.nombre || '')).toLowerCase().includes(query));
+  // Usa el índice de texto precalculado en lugar de recomputarlo por producto en cada búsqueda
+  const matches = PRODUCTOS.filter(p => p._searchIndex.includes(query));
   searchGrid.innerHTML = '';
   if (matches.length === 0) {
     searchGrid.style.display = 'block';
     searchGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-sec)">No encontramos productos para "${esc(val)}"</div>`;
   } else {
     searchGrid.style.display = 'grid';
-    matches.forEach(p => searchGrid.appendChild(buildCard(p)));
+    const frag = document.createDocumentFragment();
+    matches.forEach(p => frag.appendChild(buildCard(p)));
+    searchGrid.appendChild(frag);
   }
 }
 
@@ -831,11 +885,11 @@ function renderPDGallery(p) {
   const wrap = document.getElementById('pdMainImgWrap'); 
   const thumbs = document.getElementById('pdThumbs');
   if (pdImages.length > 0) {
-    wrap.innerHTML = `<img id="pdMainImg" src="${pdImages[0]}" alt="${esc(p.nombre)}">`;
+    wrap.innerHTML = `<img id="pdMainImg" src="${pdImages[0]}" alt="${esc(p.nombre)}" decoding="async">`;
     if(pdImages.length > 1){
       thumbs.innerHTML = pdImages.map((url, i) => `
         <div class="pd-thumb ${i===0?'active':''}" onclick="document.getElementById('pdMainImg').src='${url}'; document.querySelectorAll('.pd-thumb').forEach(t=>t.classList.remove('active')); this.classList.add('active');">
-          <img src="${url}">
+          <img src="${url}" loading="lazy" decoding="async">
         </div>`).join('');
     } else { thumbs.innerHTML = ''; }
   } else { wrap.innerHTML = ''; thumbs.innerHTML = ''; }
@@ -911,13 +965,23 @@ function renderPDInfo(p) {
 
 /* ════ RESEÑAS DE PRODUCTO ════ */
 let selectedReviewStars = 5;
+const REVIEWS_CACHE = new Map(); // caché en memoria: productId -> reseñas (evita refetch al reabrir el mismo producto)
 
-async function loadReviews(productId) {
+async function loadReviews(productId, forceRefresh = false) {
   const section = document.getElementById('pdReviewsSection');
   if (!sb) { section.innerHTML = ''; return; }
+
+  if (!forceRefresh && REVIEWS_CACHE.has(productId)) {
+    const cached = REVIEWS_CACHE.get(productId);
+    renderReviewsSection(productId, cached);
+    updateTopRatingDisplay(productId, cached);
+    return;
+  }
+
   try {
     const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).order('created_at', { ascending: false });
     if (error) throw error;
+    REVIEWS_CACHE.set(productId, data || []);
     renderReviewsSection(productId, data || []);
     updateTopRatingDisplay(productId, data || []);
   } catch(e) {
@@ -994,7 +1058,7 @@ async function submitReview(productId) {
       comentario: comentario || null
     });
     if (error) throw error;
-    await loadReviews(productId);
+    await loadReviews(productId, true);
   } catch(e) {
     console.warn('Error enviando reseña:', e);
     alert('No se pudo enviar tu reseña. Intenta de nuevo.');
@@ -1080,7 +1144,9 @@ function renderFavoritesView() {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-sec)">Aún no tienes productos en Favoritos.<br>Toca el ♡ en cualquier producto para guardarlo aquí.</div>`;
     return;
   }
-  favProds.forEach(p => grid.appendChild(buildCard(p)));
+  const frag = document.createDocumentFragment();
+  favProds.forEach(p => frag.appendChild(buildCard(p)));
+  grid.appendChild(frag);
 }
 
 // ─── COMPARTIR PRODUCTO ───
