@@ -1343,26 +1343,55 @@ async function checkout() {
   let orderId = null;
   const cuponUsado = appliedCoupon ? appliedCoupon.codigo : null;
   if (sb) {
+    const nowIso = new Date().toISOString();
+    const pedidoPayload = {
+      // Columnas NOT NULL reales de la tabla "pedidos" en Supabase:
+      cliente_nombre: name,
+      cliente_telefono: phone,
+      items,
+      total,
+      estado: 'nuevo',
+      created_at: nowIso,
+      updated_at: nowIso,
+      // Columnas legacy que el Panel Administrativo usa para mostrar el pedido (no eliminadas de la tabla):
+      cliente: name,
+      whatsapp: phone,
+      fecha: nowIso,
+      // Datos adicionales del pedido:
+      cupon_codigo: cuponUsado,
+      descuento,
+      mensaje_wa: msg
+    };
+    console.log('[Checkout] ▶ Enviando pedido a Supabase → tabla "pedidos":', pedidoPayload);
     try {
       const { data: pedData, error: pedError } = await sb.from('pedidos')
-        .insert({ cliente: name, whatsapp: phone, total, cupon_codigo: cuponUsado, descuento, items })
+        .insert(pedidoPayload)
         .select().single();
+      console.log('[Checkout] ◀ Respuesta de Supabase (insert pedido):', { data: pedData, error: pedError });
       if (pedError) throw pedError;
       orderId = pedData?.id || null;
+      console.log('[Checkout] ✔ Pedido guardado con éxito en Supabase. ID:', orderId);
 
       for (const it of items) {
-        await sb.rpc('descontar_stock', {
+        const { error: stockError } = await sb.rpc('descontar_stock', {
           p_producto_id: it.producto_id,
           p_variante_id: it.variante_id,
           p_cantidad: it.cantidad
-        }).catch(e => console.warn('Error descontando stock:', e));
+        });
+        if (stockError) console.warn('[Checkout] ✘ Error descontando stock:', stockError);
+        else console.log('[Checkout] ✔ Stock descontado para', it.nombre);
       }
       if (cuponUsado) {
-        await sb.rpc('registrar_uso_cupon', { p_codigo: cuponUsado }).catch(e => console.warn('Error registrando uso de cupón:', e));
+        const { error: cuponError } = await sb.rpc('registrar_uso_cupon', { p_codigo: cuponUsado });
+        if (cuponError) console.warn('[Checkout] ✘ Error registrando uso de cupón:', cuponError);
+        else console.log('[Checkout] ✔ Uso de cupón registrado:', cuponUsado);
       }
     } catch(e) {
-      console.warn('Error guardando el pedido:', e);
+      console.error('[Checkout] ✘ Error completo guardando el pedido en Supabase:', e);
+      console.error('[Checkout] ✘ Detalle:', { message: e?.message, details: e?.details, hint: e?.hint, code: e?.code });
     }
+  } else {
+    console.warn('[Checkout] Cliente de Supabase (sb) no está disponible; el pedido no se guardó en la nube.');
   }
 
   btn.disabled = false;
