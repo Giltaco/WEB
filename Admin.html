@@ -1538,11 +1538,15 @@
           console.log('[Pedidos] No hay pedidos en Supabase todavía (tabla vacía).');
         }
 
-        const { data: cupData } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
-        if (cupData) state.cupones = cupData;
+        console.log('[Cupones] ▶ Consultando Supabase → tabla "cupones"...');
+        const { data: cupData, error: cupError } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
+        if (cupError) console.error('[Cupones] ✘ Error al leer cupones desde Supabase:', cupError);
+        else { state.cupones = cupData; console.log('[Cupones] ✔ ' + (cupData ? cupData.length : 0) + ' cupón(es) cargado(s).'); }
 
         // Configuración funcional de la tienda (fila única, id=1)
-        const { data: cfgData } = await supabaseClient.from('tienda_config').select('*').eq('id', 1).single();
+        console.log('[Configuración] ▶ Consultando Supabase → tabla "tienda_config"...');
+        const { data: cfgData, error: cfgError } = await supabaseClient.from('tienda_config').select('*').eq('id', 1).single();
+        if (cfgError) console.error('[Configuración] ✘ Error al leer tienda_config desde Supabase:', cfgError);
         if (cfgData) {
           state.settings.nombre = cfgData.nombre || state.settings.nombre;
           state.settings.slogan = cfgData.slogan || state.settings.slogan;
@@ -2715,7 +2719,8 @@
       }
       closeModal('cupModal');
       showToast('Cupón guardado correctamente', 'success');
-      const { data: cupData } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
+      const { data: cupData, error: cupReloadError } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
+      if (cupReloadError) console.error('[Cupones] ✘ Error al recargar cupones tras guardar:', cupReloadError);
       state.cupones = cupData || [];
       renderCuponesTable();
     } catch(e) {
@@ -3176,15 +3181,22 @@
 
     try {
       // Se lee únicamente desde la tabla "suggestions" ya existente, con la misma conexión del panel
+      console.log('[Sugerencias] ▶ Consultando Supabase → tabla "suggestions" (select *)...');
       const { data, error } = await supabaseClient.from('suggestions').select('*').order('created_at', { ascending: false });
+      console.log('[Sugerencias] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
       if (error) throw error;
       sugState.items = data || [];
       sugState.loaded = true;
       sugState.page = 1;
       sugState.loading = false;
+      if (!data || data.length === 0) {
+        console.warn('[Sugerencias] La consulta no devolvió filas y tampoco hubo error. Esto casi siempre significa que falta una policy RLS de SELECT para el rol "anon" en la tabla "suggestions" (solo existe la de INSERT).');
+      } else {
+        console.log('[Sugerencias] ✔ ' + data.length + ' sugerencia(s) cargada(s) correctamente.');
+      }
       renderSugerenciasTable();
     } catch(e) {
-      console.warn('Error al cargar sugerencias:', e);
+      console.error('[Sugerencias] ✘ Error completo al cargar sugerencias:', e);
       sugState.loading = false;
       sugState.error = true;
       countEl.textContent = 'Error al cargar';
