@@ -1134,13 +1134,15 @@ async function loadReviews(productId, forceRefresh = false) {
   }
 
   try {
-    const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).order('created_at', { ascending: false });
+    console.log('[Reseñas] ▶ Consultando Supabase → tabla "resenas" para producto', productId);
+    const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).eq('estado', 'aprobada').order('created_at', { ascending: false });
+    console.log('[Reseñas] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
     if (error) throw error;
     REVIEWS_CACHE.set(productId, data || []);
     renderReviewsSection(productId, data || []);
     updateTopRatingDisplay(productId, data || []);
   } catch(e) {
-    console.warn('Error cargando reseñas:', e);
+    console.error('[Reseñas] ✘ Error cargando reseñas:', e);
     section.innerHTML = '';
   }
 }
@@ -1206,16 +1208,15 @@ async function submitReview(productId) {
   btn.disabled = true;
   btn.textContent = 'Enviando...';
   try {
-    const { error } = await sb.from('resenas').insert({
-      producto_id: productId,
-      cliente: nombre,
-      rating: selectedReviewStars,
-      comentario: comentario || null
-    });
+    const reviewPayload = { producto_id: productId, cliente: nombre, rating: selectedReviewStars, comentario: comentario || null, estado: 'pendiente' };
+    console.log('[Reseñas] ▶ Enviando reseña a Supabase:', reviewPayload);
+    const { error } = await sb.from('resenas').insert(reviewPayload);
+    console.log('[Reseñas] ◀ Respuesta de Supabase (insert):', { error });
     if (error) throw error;
+    alert('¡Gracias por tu reseña! Será visible en cuanto sea revisada.');
     await loadReviews(productId, true);
   } catch(e) {
-    console.warn('Error enviando reseña:', e);
+    console.error('[Reseñas] ✘ Error enviando reseña:', e);
     alert('No se pudo enviar tu reseña. Intenta de nuevo.');
     btn.disabled = false;
     btn.textContent = 'Enviar reseña';
@@ -1499,7 +1500,9 @@ async function aplicarCupon() {
   const btn = document.getElementById('couponApplyBtn');
   btn.disabled = true;
   try {
+    console.log('[Cupón] ▶ Validando código con Supabase:', { p_codigo: codigo, p_subtotal: subtotal });
     const { data, error } = await sb.rpc('validar_cupon', { p_codigo: codigo, p_subtotal: subtotal });
+    console.log('[Cupón] ◀ Respuesta de Supabase:', { data, error });
     if (error) throw error;
     const r = Array.isArray(data) ? data[0] : data;
     if (!r || !r.valido) {
@@ -1512,7 +1515,7 @@ async function aplicarCupon() {
       msgEl.style.color = 'var(--success)';
     }
   } catch(e) {
-    console.warn('Error validando cupón:', e);
+    console.error('[Cupón] ✘ Error validando cupón:', e);
     msgEl.textContent = 'No se pudo validar el cupón.';
     msgEl.style.color = 'var(--offer)';
   }
@@ -1539,6 +1542,48 @@ async function checkout() {
   const btn = document.getElementById('checkoutBtn');
   btn.disabled = true;
   btn.textContent = 'Procesando...';
+
+  // Revalidar disponibilidad real contra Supabase antes de confirmar (por si algo se agotó mientras el cliente tenía la bolsa abierta)
+  if (sb) {
+    try {
+      const idsCarrito = [...new Set(cart.map(i => i.prod.id))];
+      console.log('[Checkout] ▶ Revalidando stock antes de confirmar para productos:', idsCarrito);
+      const { data: freshProds, error: freshError } = await sb.from('productos').select('id, agotado, variantes').in('id', idsCarrito);
+      console.log('[Checkout] ◀ Respuesta de Supabase (revalidación de stock):', { data: freshProds, error: freshError });
+      if (freshError) throw freshError;
+
+      const noDisponibles = [];
+      cart.forEach(i => {
+        const fresh = (freshProds || []).find(p => p.id === i.prod.id);
+        if (!fresh) { noDisponibles.push(i.prod.nombre); return; }
+        if (i.variante) {
+          const freshVar = (fresh.variantes || []).find(v => v.id === i.variante.id);
+          if (!freshVar || freshVar.stock === 0) noDisponibles.push(`${i.prod.nombre} (${i.variante.nombre})`);
+        } else if (fresh.agotado === true) {
+          noDisponibles.push(i.prod.nombre);
+        }
+      });
+
+      if (noDisponibles.length > 0) {
+        alert('Lo sentimos, este producto ya no está disponible y se quitó de tu bolsa:\n\n' + noDisponibles.join('\n') + '\n\nRevisa tu bolsa e intenta de nuevo.');
+        cart = cart.filter(i => {
+          const fresh = (freshProds || []).find(p => p.id === i.prod.id);
+          if (!fresh) return false;
+          if (i.variante) {
+            const freshVar = (fresh.variantes || []).find(v => v.id === i.variante.id);
+            return freshVar && freshVar.stock > 0;
+          }
+          return fresh.agotado !== true;
+        });
+        renderCart();
+        btn.disabled = false;
+        btn.textContent = 'Completar Orden';
+        return;
+      }
+    } catch(e) {
+      console.warn('[Checkout] No se pudo revalidar el stock (se continúa con el pedido):', e);
+    }
+  }
 
   let msg = TIENDA.mensajeBase + `\n\n*Cliente:* ${name}\n*Teléfono:* ${phone}\n\n*Mi Pedido:*\n`;
   let subtotal = 0;
@@ -1675,7 +1720,9 @@ async function buscarMisPedidos() {
 
   resultsEl.innerHTML = '<p style="font-size:13px;color:var(--text-sec)">Buscando...</p>';
   try {
+    console.log('[Mis Pedidos] ▶ Consultando Supabase RPC obtener_mis_pedidos:', { p_whatsapp: phone });
     const { data, error } = await sb.rpc('obtener_mis_pedidos', { p_whatsapp: phone });
+    console.log('[Mis Pedidos] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
     if (error) throw error;
     if (!data || data.length === 0) {
       resultsEl.innerHTML = '<p style="font-size:13px;color:var(--text-sec)">No encontramos pedidos con ese teléfono.</p>';
@@ -1696,7 +1743,7 @@ async function buscarMisPedidos() {
     `).join('');
   } catch(e) {
     resultsEl.innerHTML = '<p style="font-size:13px;color:var(--offer)">Error al buscar tus pedidos.</p>';
-    console.warn(e);
+    console.error('[Mis Pedidos] ✘ Error completo:', e);
   }
 }
 
