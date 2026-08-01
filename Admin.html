@@ -2724,6 +2724,8 @@
     }
 
     // 3) Sincronización real con Supabase — upsert por id=1 (fila única de configuración)
+    // NOTA: "moneda" no existe como columna en tienda_config (verificado en el esquema real),
+    // por eso se excluye del payload; se mantiene como ajuste local igual que perPage/stockThreshold.
     const payload = {
       id: 1,
       nombre: state.settings.nombre,
@@ -2734,7 +2736,6 @@
       instagram: state.settings.instagram,
       facebook: state.settings.facebook,
       tiktok: state.settings.tiktok,
-      moneda: state.settings.moneda,
       updated_at: new Date().toISOString()
     };
     console.log('[Configuración] ▶ Enviando upsert a Supabase → tabla "tienda_config":', payload);
@@ -2768,7 +2769,7 @@
         state.settings.instagram = freshCfg.instagram || '';
         state.settings.facebook = freshCfg.facebook || '';
         state.settings.tiktok = freshCfg.tiktok || '';
-        state.settings.moneda = freshCfg.moneda || state.settings.moneda;
+        // "moneda" no existe en tienda_config: se conserva el valor local (ya tomado del formulario arriba)
       }
 
       saveLocalState();
