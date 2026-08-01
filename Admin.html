@@ -1380,34 +1380,8 @@
       }
     ];
 
-    // Pedidos demo iniciales
-    state.pedidos = [
-      {
-        id: 'ped_101',
-        cliente: 'Sofía Valenzuela',
-        whatsapp: '5218123456789',
-        direccion: 'Av. Constitución 420, Monterrey, NL',
-        total: 930,
-        estado: 'nuevo', // nuevo, en-proceso, completado
-        fecha: new Date(Date.now() - 1000*60*45).toISOString(),
-        items: [
-          { nombre: 'Labial Matte Velvet (Ruby Red)', cantidad: 1, precio: 280 },
-          { nombre: 'Paleta de Sombras Celestial Glow', cantidad: 1, precio: 650 }
-        ]
-      },
-      {
-        id: 'ped_102',
-        cliente: 'Valeria Garza',
-        whatsapp: '5218198765432',
-        direccion: 'Calle Morelos 125, San Pedro, NL',
-        total: 420,
-        estado: 'en-proceso',
-        fecha: new Date(Date.now() - 1000*60*360).toISOString(),
-        items: [
-          { nombre: 'Base Líquida HD Radiance Skin', cantidad: 1, precio: 420 }
-        ]
-      }
-    ];
+    // Pedidos: sin datos de prueba. Se llenan exclusivamente desde Supabase (o localStorage real) más abajo.
+    state.pedidos = [];
 
     if (supabaseClient) {
       try {
@@ -1444,8 +1418,17 @@
           });
         }
 
-        const { data: pedData } = await supabaseClient.from('pedidos').select('*');
-        if (pedData && pedData.length > 0) state.pedidos = pedData;
+        console.log('[Pedidos] ▶ Consultando Supabase → tabla "pedidos" (select *)...');
+        const { data: pedData, error: pedError } = await supabaseClient.from('pedidos').select('*');
+        console.log('[Pedidos] ◀ Respuesta de Supabase:', { count: pedData ? pedData.length : 0, data: pedData, error: pedError });
+        if (pedError) {
+          console.error('[Pedidos] ✘ Error al leer pedidos desde Supabase:', pedError);
+        } else if (pedData && pedData.length > 0) {
+          state.pedidos = pedData;
+          console.log('[Pedidos] ✔ ' + pedData.length + ' pedido(s) real(es) cargado(s) desde Supabase.');
+        } else {
+          console.log('[Pedidos] No hay pedidos en Supabase todavía (tabla vacía).');
+        }
 
         const { data: cupData } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
         if (cupData) state.cupones = cupData;
@@ -1474,7 +1457,11 @@
         const localCats = localStorage.getItem('nelis_admin_cats');
         if (localCats) state.categories = JSON.parse(localCats);
         const localPeds = localStorage.getItem('nelis_admin_pedidos');
-        if (localPeds) state.pedidos = JSON.parse(localPeds);
+        if (localPeds) {
+          const parsedPeds = JSON.parse(localPeds);
+          // Limpieza defensiva de los pedidos de prueba que existían hardcodeados anteriormente (ped_101/ped_102)
+          state.pedidos = parsedPeds.filter(p => p && p.id !== 'ped_101' && p.id !== 'ped_102');
+        }
       } catch(e) {}
     }
 
@@ -1495,6 +1482,7 @@
     try {
       supabaseClient.channel('admin-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, payload => {
+          console.log('[Pedidos] ⚡ Evento realtime recibido de Supabase:', payload.eventType, payload.new || payload.old);
           loadAllData().then(() => {
             showNotifBanner('Nuevo Pedido Recibido', `Se ha registrado un pedido de ${payload.new?.cliente || 'Cliente'}`);
             renderPedidos();
