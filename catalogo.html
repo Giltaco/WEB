@@ -1135,7 +1135,7 @@ async function loadReviews(productId, forceRefresh = false) {
 
   try {
     console.log('[Reseñas] ▶ Consultando Supabase → tabla "resenas" para producto', productId);
-    const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).eq('estado', 'aprobada').order('created_at', { ascending: false });
+    const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).order('created_at', { ascending: false });
     console.log('[Reseñas] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
     if (error) throw error;
     REVIEWS_CACHE.set(productId, data || []);
@@ -1208,12 +1208,12 @@ async function submitReview(productId) {
   btn.disabled = true;
   btn.textContent = 'Enviando...';
   try {
-    const reviewPayload = { producto_id: productId, cliente: nombre, rating: selectedReviewStars, comentario: comentario || null, estado: 'pendiente' };
+    const reviewPayload = { producto_id: productId, cliente: nombre, rating: selectedReviewStars, comentario: comentario || null };
     console.log('[Reseñas] ▶ Enviando reseña a Supabase:', reviewPayload);
     const { error } = await sb.from('resenas').insert(reviewPayload);
     console.log('[Reseñas] ◀ Respuesta de Supabase (insert):', { error });
     if (error) throw error;
-    alert('¡Gracias por tu reseña! Será visible en cuanto sea revisada.');
+    alert('¡Gracias por tu reseña!');
     await loadReviews(productId, true);
   } catch(e) {
     console.error('[Reseñas] ✘ Error enviando reseña:', e);
@@ -1408,6 +1408,13 @@ function loadCartFromStorage() {
       cart.push({ key: item.key, prod, qty: item.qty, variante });
     }); 
     renderCart();
+    // Restaurar nombre/teléfono del checkout si el cliente los había escrito antes de recargar
+    try {
+      const savedName = localStorage.getItem('ff_checkout_name');
+      const savedPhone = localStorage.getItem('ff_checkout_phone');
+      if (savedName) document.getElementById('clientName').value = savedName;
+      if (savedPhone) document.getElementById('clientPhone').value = savedPhone;
+    } catch(e) {}
   } catch(e) {}
 }
 
@@ -1667,6 +1674,7 @@ async function checkout() {
   cart = [];
   appliedCoupon = null;
   saveCartToStorage();
+  try { localStorage.removeItem('ff_checkout_name'); localStorage.removeItem('ff_checkout_phone'); } catch(e) {}
   renderCart();
   closeCart();
   showOrderConfirmation(orderId, items, total);
@@ -2122,8 +2130,8 @@ window.addEventListener('DOMContentLoaded', init);
       <button class="qty-btn" id="couponApplyBtn" onclick="aplicarCupon()" style="width:auto;padding:0 16px">Aplicar</button>
     </div>
     <div id="couponMsg" style="font-size:12px;margin:-6px 0 12px;cursor:pointer" onclick="quitarCupon()"></div>
-    <div class="cart-form-field"><input type="text" id="clientName" placeholder="Nombre completo"></div>
-    <div class="cart-form-field"><input type="tel" id="clientPhone" placeholder="Teléfono / WhatsApp"></div>
+    <div class="cart-form-field"><input type="text" id="clientName" placeholder="Nombre completo" oninput="try{localStorage.setItem('ff_checkout_name',this.value)}catch(e){}"></div>
+    <div class="cart-form-field"><input type="tel" id="clientPhone" placeholder="Teléfono / WhatsApp" oninput="try{localStorage.setItem('ff_checkout_phone',this.value)}catch(e){}"></div>
     <button class="btn-checkout" id="checkoutBtn" onclick="checkout()">Completar Orden</button>
   </div>
 </div>
