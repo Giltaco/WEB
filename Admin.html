@@ -1925,31 +1925,61 @@
   async function changePedidoStatus(id, newEstado) {
     const ped = state.pedidos.find(p => p.id === id);
     if (ped) {
+      const estadoAnterior = ped.estado;
       ped.estado = newEstado;
       persistData();
-      logAudit('pedido', 'success', `Pedido ${id} actualizado a ${newEstado}`);
       renderPedidos();
       renderDashboard();
-      showToast(`Pedido actualizado a ${newEstado}`, 'success');
-      
+
       if (supabaseClient) {
-        await supabaseClient.from('pedidos').update({ estado: newEstado }).eq('id', id).catch(()=>{});
+        console.log('[Pedidos] ▶ Actualizando estado en Supabase:', { id, estado: newEstado });
+        const { data, error } = await supabaseClient.from('pedidos').update({ estado: newEstado }).eq('id', id).select();
+        console.log('[Pedidos] ◀ Respuesta de Supabase (update estado):', { data, error });
+        if (error || !data || data.length === 0) {
+          console.error('[Pedidos] ✘ No se pudo guardar el nuevo estado en Supabase:', error || 'update no afectó ninguna fila (revisa RLS/policy de UPDATE en "pedidos")');
+          ped.estado = estadoAnterior;
+          persistData();
+          renderPedidos();
+          renderDashboard();
+          logAudit('pedido', 'error', `Error al actualizar pedido ${id}: no se guardó en la nube`);
+          showToast('No se pudo guardar el cambio. Intenta de nuevo.', 'error');
+          return;
+        }
+        console.log('[Pedidos] ✔ Estado actualizado y confirmado en Supabase.');
       }
+
+      logAudit('pedido', 'success', `Pedido ${id} actualizado a ${newEstado}`);
+      showToast(`Pedido actualizado a ${newEstado}`, 'success');
     }
   }
 
   async function deletePedido(id) {
     if (!confirm('¿Estás segura de eliminar este pedido?')) return;
+    const pedEliminado = state.pedidos.find(p => p.id === id);
     state.pedidos = state.pedidos.filter(p => p.id !== id);
     persistData();
-    logAudit('pedido', 'warning', `Pedido ${id} eliminado`);
     renderPedidos();
     renderDashboard();
-    showToast('Pedido eliminado');
 
     if (supabaseClient) {
-      await supabaseClient.from('pedidos').delete().eq('id', id).catch(()=>{});
+      console.log('[Pedidos] ▶ Eliminando pedido en Supabase:', { id });
+      const { data, error } = await supabaseClient.from('pedidos').delete().eq('id', id).select();
+      console.log('[Pedidos] ◀ Respuesta de Supabase (delete):', { data, error });
+      if (error || !data || data.length === 0) {
+        console.error('[Pedidos] ✘ No se pudo eliminar el pedido en Supabase:', error || 'delete no afectó ninguna fila (revisa RLS/policy de DELETE en "pedidos")');
+        if (pedEliminado) state.pedidos.push(pedEliminado);
+        persistData();
+        renderPedidos();
+        renderDashboard();
+        logAudit('pedido', 'error', `Error al eliminar pedido ${id}: no se eliminó en la nube`);
+        showToast('No se pudo eliminar el pedido. Intenta de nuevo.', 'error');
+        return;
+      }
+      console.log('[Pedidos] ✔ Pedido eliminado y confirmado en Supabase.');
     }
+
+    logAudit('pedido', 'warning', `Pedido ${id} eliminado`);
+    showToast('Pedido eliminado');
   }
 
   /* ════ GESTIÓN DE PRODUCTOS ════ */
