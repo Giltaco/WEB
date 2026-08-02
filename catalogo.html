@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Neli's Make'up — Catálogo Premium</title>
+<title>Neli's Make'up — Catálogo Oficial</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
@@ -1135,7 +1135,7 @@ async function loadReviews(productId, forceRefresh = false) {
 
   try {
     console.log('[Reseñas] ▶ Consultando Supabase → tabla "resenas" para producto', productId);
-    const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).order('created_at', { ascending: false });
+    const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).eq('estado', 'aprobada').order('created_at', { ascending: false });
     console.log('[Reseñas] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
     if (error) throw error;
     REVIEWS_CACHE.set(productId, data || []);
@@ -1208,12 +1208,12 @@ async function submitReview(productId) {
   btn.disabled = true;
   btn.textContent = 'Enviando...';
   try {
-    const reviewPayload = { producto_id: productId, cliente: nombre, rating: selectedReviewStars, comentario: comentario || null };
+    const reviewPayload = { producto_id: productId, cliente: nombre, rating: selectedReviewStars, comentario: comentario || null, estado: 'pendiente' };
     console.log('[Reseñas] ▶ Enviando reseña a Supabase:', reviewPayload);
     const { error } = await sb.from('resenas').insert(reviewPayload);
     console.log('[Reseñas] ◀ Respuesta de Supabase (insert):', { error });
     if (error) throw error;
-    alert('¡Gracias por tu reseña!');
+    alert('¡Gracias por tu reseña! Será visible en cuanto sea revisada.');
     await loadReviews(productId, true);
   } catch(e) {
     console.error('[Reseñas] ✘ Error enviando reseña:', e);
