@@ -1134,9 +1134,7 @@ async function loadReviews(productId, forceRefresh = false) {
   }
 
   try {
-    console.log('[Reseñas] ▶ Consultando Supabase → tabla "resenas" para producto', productId);
     const { data, error } = await sb.from('resenas').select('*').eq('producto_id', productId).eq('estado', 'aprobada').order('created_at', { ascending: false });
-    console.log('[Reseñas] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
     if (error) throw error;
     REVIEWS_CACHE.set(productId, data || []);
     renderReviewsSection(productId, data || []);
@@ -1209,9 +1207,7 @@ async function submitReview(productId) {
   btn.textContent = 'Enviando...';
   try {
     const reviewPayload = { producto_id: productId, cliente: nombre, rating: selectedReviewStars, comentario: comentario || null, estado: 'pendiente' };
-    console.log('[Reseñas] ▶ Enviando reseña a Supabase:', reviewPayload);
     const { error } = await sb.from('resenas').insert(reviewPayload);
-    console.log('[Reseñas] ◀ Respuesta de Supabase (insert):', { error });
     if (error) throw error;
     alert('¡Gracias por tu reseña! Será visible en cuanto sea revisada.');
     await loadReviews(productId, true);
@@ -1507,9 +1503,7 @@ async function aplicarCupon() {
   const btn = document.getElementById('couponApplyBtn');
   btn.disabled = true;
   try {
-    console.log('[Cupón] ▶ Validando código con Supabase:', { p_codigo: codigo, p_subtotal: subtotal });
     const { data, error } = await sb.rpc('validar_cupon', { p_codigo: codigo, p_subtotal: subtotal });
-    console.log('[Cupón] ◀ Respuesta de Supabase:', { data, error });
     if (error) throw error;
     const r = Array.isArray(data) ? data[0] : data;
     if (!r || !r.valido) {
@@ -1554,9 +1548,7 @@ async function checkout() {
   if (sb) {
     try {
       const idsCarrito = [...new Set(cart.map(i => i.prod.id))];
-      console.log('[Checkout] ▶ Revalidando stock antes de confirmar para productos:', idsCarrito);
-      const { data: freshProds, error: freshError } = await sb.from('productos').select('id, agotado, variantes').in('id', idsCarrito);
-      console.log('[Checkout] ◀ Respuesta de Supabase (revalidación de stock):', { data: freshProds, error: freshError });
+      const { data: freshProds, error: freshError } = await sb.from('productos').select('id, agotado, stock, variantes').in('id', idsCarrito);
       if (freshError) throw freshError;
 
       const noDisponibles = [];
@@ -1565,22 +1557,22 @@ async function checkout() {
         if (!fresh) { noDisponibles.push(i.prod.nombre); return; }
         if (i.variante) {
           const freshVar = (fresh.variantes || []).find(v => v.id === i.variante.id);
-          if (!freshVar || freshVar.stock === 0) noDisponibles.push(`${i.prod.nombre} (${i.variante.nombre})`);
-        } else if (fresh.agotado === true) {
+          if (!freshVar || freshVar.stock < i.qty) noDisponibles.push(`${i.prod.nombre} (${i.variante.nombre})`);
+        } else if (fresh.agotado === true || (fresh.stock !== null && fresh.stock < i.qty)) {
           noDisponibles.push(i.prod.nombre);
         }
       });
 
       if (noDisponibles.length > 0) {
-        alert('Lo sentimos, este producto ya no está disponible y se quitó de tu bolsa:\n\n' + noDisponibles.join('\n') + '\n\nRevisa tu bolsa e intenta de nuevo.');
+        alert('Lo sentimos, no hay suficiente stock de este producto y se quitó de tu bolsa:\n\n' + noDisponibles.join('\n') + '\n\nRevisa tu bolsa e intenta de nuevo.');
         cart = cart.filter(i => {
           const fresh = (freshProds || []).find(p => p.id === i.prod.id);
           if (!fresh) return false;
           if (i.variante) {
             const freshVar = (fresh.variantes || []).find(v => v.id === i.variante.id);
-            return freshVar && freshVar.stock > 0;
+            return freshVar && freshVar.stock >= i.qty;
           }
-          return fresh.agotado !== true;
+          return fresh.agotado !== true && (fresh.stock === null || fresh.stock >= i.qty);
         });
         renderCart();
         btn.disabled = false;
@@ -1635,15 +1627,12 @@ async function checkout() {
       descuento,
       mensaje_wa: msg
     };
-    console.log('[Checkout] ▶ Enviando pedido a Supabase → tabla "pedidos":', pedidoPayload);
     try {
       const { data: pedData, error: pedError } = await sb.from('pedidos')
         .insert(pedidoPayload)
         .select().single();
-      console.log('[Checkout] ◀ Respuesta de Supabase (insert pedido):', { data: pedData, error: pedError });
       if (pedError) throw pedError;
       orderId = pedData?.id || null;
-      console.log('[Checkout] ✔ Pedido guardado con éxito en Supabase. ID:', orderId);
 
       for (const it of items) {
         const { error: stockError } = await sb.rpc('descontar_stock', {
@@ -1652,12 +1641,10 @@ async function checkout() {
           p_cantidad: it.cantidad
         });
         if (stockError) console.warn('[Checkout] ✘ Error descontando stock:', stockError);
-        else console.log('[Checkout] ✔ Stock descontado para', it.nombre);
       }
       if (cuponUsado) {
         const { error: cuponError } = await sb.rpc('registrar_uso_cupon', { p_codigo: cuponUsado });
         if (cuponError) console.warn('[Checkout] ✘ Error registrando uso de cupón:', cuponError);
-        else console.log('[Checkout] ✔ Uso de cupón registrado:', cuponUsado);
       }
     } catch(e) {
       console.error('[Checkout] ✘ Error completo guardando el pedido en Supabase:', e);
@@ -1728,9 +1715,7 @@ async function buscarMisPedidos() {
 
   resultsEl.innerHTML = '<p style="font-size:13px;color:var(--text-sec)">Buscando...</p>';
   try {
-    console.log('[Mis Pedidos] ▶ Consultando Supabase RPC obtener_mis_pedidos:', { p_whatsapp: phone });
     const { data, error } = await sb.rpc('obtener_mis_pedidos', { p_whatsapp: phone });
-    console.log('[Mis Pedidos] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
     if (error) throw error;
     if (!data || data.length === 0) {
       resultsEl.innerHTML = '<p style="font-size:13px;color:var(--text-sec)">No encontramos pedidos con ese teléfono.</p>';
