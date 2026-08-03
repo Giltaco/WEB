@@ -1525,26 +1525,17 @@
             };
           });
         }
-
-        console.log('[Pedidos] ▶ Consultando Supabase → tabla "pedidos" (select *)...');
         const { data: pedData, error: pedError } = await supabaseClient.from('pedidos').select('*');
-        console.log('[Pedidos] ◀ Respuesta de Supabase:', { count: pedData ? pedData.length : 0, data: pedData, error: pedError });
         if (pedError) {
           console.error('[Pedidos] ✘ Error al leer pedidos desde Supabase:', pedError);
         } else if (pedData && pedData.length > 0) {
           state.pedidos = pedData;
-          console.log('[Pedidos] ✔ ' + pedData.length + ' pedido(s) real(es) cargado(s) desde Supabase.');
-        } else {
-          console.log('[Pedidos] No hay pedidos en Supabase todavía (tabla vacía).');
         }
-
-        console.log('[Cupones] ▶ Consultando Supabase → tabla "cupones"...');
         const { data: cupData, error: cupError } = await supabaseClient.from('cupones').select('*').order('created_at', { ascending: false });
         if (cupError) console.error('[Cupones] ✘ Error al leer cupones desde Supabase:', cupError);
-        else { state.cupones = cupData; console.log('[Cupones] ✔ ' + (cupData ? cupData.length : 0) + ' cupón(es) cargado(s).'); }
+        else { state.cupones = cupData; }
 
         // Configuración funcional de la tienda (fila única, id=1)
-        console.log('[Configuración] ▶ Consultando Supabase → tabla "tienda_config"...');
         const { data: cfgData, error: cfgError } = await supabaseClient.from('tienda_config').select('*').eq('id', 1).single();
         if (cfgError) console.error('[Configuración] ✘ Error al leer tienda_config desde Supabase:', cfgError);
         if (cfgData) {
@@ -1594,11 +1585,16 @@
     try {
       supabaseClient.channel('admin-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, payload => {
-          console.log('[Pedidos] ⚡ Evento realtime recibido de Supabase:', payload.eventType, payload.new || payload.old);
           loadAllData().then(() => {
             showNotifBanner('Nuevo Pedido Recibido', `Se ha registrado un pedido de ${payload.new?.cliente || 'Cliente'}`);
             renderPedidos();
           });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'suggestions' }, () => {
+          if (document.getElementById('page-sugerencias')?.classList.contains('active')) loadSugerencias();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'resenas' }, () => {
+          if (document.getElementById('page-resenas')?.classList.contains('active')) loadResenas();
         })
         .subscribe();
     } catch(e) { console.warn(e); }
@@ -1932,9 +1928,7 @@
       renderDashboard();
 
       if (supabaseClient) {
-        console.log('[Pedidos] ▶ Actualizando estado en Supabase:', { id, estado: newEstado });
         const { data, error } = await supabaseClient.from('pedidos').update({ estado: newEstado }).eq('id', id).select();
-        console.log('[Pedidos] ◀ Respuesta de Supabase (update estado):', { data, error });
         if (error || !data || data.length === 0) {
           console.error('[Pedidos] ✘ No se pudo guardar el nuevo estado en Supabase:', error || 'update no afectó ninguna fila (revisa RLS/policy de UPDATE en "pedidos")');
           ped.estado = estadoAnterior;
@@ -1945,7 +1939,6 @@
           showToast('No se pudo guardar el cambio. Intenta de nuevo.', 'error');
           return;
         }
-        console.log('[Pedidos] ✔ Estado actualizado y confirmado en Supabase.');
       }
 
       logAudit('pedido', 'success', `Pedido ${id} actualizado a ${newEstado}`);
@@ -1962,9 +1955,7 @@
     renderDashboard();
 
     if (supabaseClient) {
-      console.log('[Pedidos] ▶ Eliminando pedido en Supabase:', { id });
       const { data, error } = await supabaseClient.from('pedidos').delete().eq('id', id).select();
-      console.log('[Pedidos] ◀ Respuesta de Supabase (delete):', { data, error });
       if (error || !data || data.length === 0) {
         console.error('[Pedidos] ✘ No se pudo eliminar el pedido en Supabase:', error || 'delete no afectó ninguna fila (revisa RLS/policy de DELETE en "pedidos")');
         if (pedEliminado) state.pedidos.push(pedEliminado);
@@ -1975,7 +1966,6 @@
         showToast('No se pudo eliminar el pedido. Intenta de nuevo.', 'error');
         return;
       }
-      console.log('[Pedidos] ✔ Pedido eliminado y confirmado en Supabase.');
     }
 
     logAudit('pedido', 'warning', `Pedido ${id} eliminado`);
@@ -2471,18 +2461,35 @@
     const p = state.products.find(x => x.id === id);
     if (!p) return;
     const clone = JSON.parse(JSON.stringify(p));
-    clone.id = 'prod_' + Date.now();
+    const tempId = 'prod_' + Date.now();
+    clone.id = tempId;
     clone.nombre = p.nombre + ' (Copia)';
     state.products.push(clone);
     persistData();
-    logAudit('producto', 'success', `Producto duplicado: ${clone.nombre}`);
     renderProductosTable();
     renderDashboard();
-    showToast('Producto duplicado correctamente', 'success');
 
     if (supabaseClient) {
-      await supabaseClient.from('productos').insert(clone).catch(()=>{});
+      const { id: _tempIdOmitido, ...payload } = clone; // no enviar el id temporal: la columna es uuid con default propio
+      const { data, error } = await supabaseClient.from('productos').insert(payload).select().single();
+      if (error || !data) {
+        console.error('[Productos] ✘ No se pudo duplicar el producto en Supabase:', error);
+        state.products = state.products.filter(x => x.id !== tempId);
+        persistData();
+        renderProductosTable();
+        renderDashboard();
+        logAudit('producto', 'error', `Error al duplicar producto: no se guardó en la nube`);
+        showToast('No se pudo duplicar el producto. Intenta de nuevo.', 'error');
+        return;
+      }
+      const idx = state.products.findIndex(x => x.id === tempId);
+      if (idx > -1) state.products[idx] = data;
+      persistData();
+      renderProductosTable();
     }
+
+    logAudit('producto', 'success', `Producto duplicado: ${clone.nombre}`);
+    showToast('Producto duplicado correctamente', 'success');
   }
 
   async function deleteProduct(id) {
@@ -2490,14 +2497,25 @@
     const p = state.products.find(x => x.id === id);
     state.products = state.products.filter(x => x.id !== id);
     persistData();
-    logAudit('producto', 'warning', `Producto eliminado: ${p ? p.nombre : id}`);
     renderProductosTable();
     renderDashboard();
-    showToast('Producto eliminado');
 
     if (supabaseClient) {
-      await supabaseClient.from('productos').delete().eq('id', id).catch(()=>{});
+      const { data, error } = await supabaseClient.from('productos').delete().eq('id', id).select();
+      if (error || !data || data.length === 0) {
+        console.error('[Productos] ✘ No se pudo eliminar el producto en Supabase:', error || 'delete no afectó ninguna fila (revisa RLS)');
+        if (p) state.products.push(p);
+        persistData();
+        renderProductosTable();
+        renderDashboard();
+        logAudit('producto', 'error', `Error al eliminar producto: no se eliminó en la nube`);
+        showToast('No se pudo eliminar el producto. Intenta de nuevo.', 'error');
+        return;
+      }
     }
+
+    logAudit('producto', 'warning', `Producto eliminado: ${p ? p.nombre : id}`);
+    showToast('Producto eliminado');
   }
 
   /* ════ GESTIÓN DE CATEGORÍAS ════ */
@@ -2626,16 +2644,28 @@
 
   async function deleteCategory(id) {
     if (!confirm('¿Estás segura de eliminar esta categoría?')) return;
+    const catEliminada = state.categories.find(c => c.id === id);
     state.categories = state.categories.filter(c => c.id !== id);
     persistData();
-    logAudit('categoria', 'warning', `Categoría eliminada: ${id}`);
     renderCategoriasGrid();
     updateCategorySelects();
-    showToast('Categoría eliminada');
 
     if (supabaseClient) {
-      await supabaseClient.from('categorias').delete().eq('id', id).catch(()=>{});
+      const { data, error } = await supabaseClient.from('categorias').delete().eq('id', id).select();
+      if (error || !data || data.length === 0) {
+        console.error('[Categorías] ✘ No se pudo eliminar la categoría en Supabase:', error || 'delete no afectó ninguna fila (revisa RLS)');
+        if (catEliminada) state.categories.push(catEliminada);
+        persistData();
+        renderCategoriasGrid();
+        updateCategorySelects();
+        logAudit('categoria', 'error', `Error al eliminar categoría: no se eliminó en la nube`);
+        showToast('No se pudo eliminar la categoría. Intenta de nuevo.', 'error');
+        return;
+      }
     }
+
+    logAudit('categoria', 'warning', `Categoría eliminada: ${id}`);
+    showToast('Categoría eliminada');
   }
 
   /* ════ CUPONES ════ */
@@ -2845,8 +2875,6 @@
     state.settings.perPage = parseInt(document.getElementById('cfg_perPage').value) || 20;
     state.settings.stockThreshold = parseInt(document.getElementById('cfg_stockThreshold').value) || 3;
 
-    console.log('[Configuración] ▶ Iniciando guardado. Valores capturados del formulario:', JSON.parse(JSON.stringify(state.settings)));
-
     // 1) Respaldo local inmediato (no depende de la nube, no bloquea el flujo)
     saveLocalState();
 
@@ -2873,7 +2901,6 @@
       tiktok: state.settings.tiktok,
       updated_at: new Date().toISOString()
     };
-    console.log('[Configuración] ▶ Enviando upsert a Supabase → tabla "tienda_config":', payload);
 
     try {
       const { data: upsertData, error: upsertError } = await supabaseClient
@@ -2881,8 +2908,6 @@
         .upsert(payload, { onConflict: 'id' })
         .select()
         .single();
-
-      console.log('[Configuración] ◀ Respuesta de Supabase (upsert):', { data: upsertData, error: upsertError });
       if (upsertError) throw upsertError;
 
       // 4) Re-leer de Supabase para confirmar y reflejar el estado real inmediatamente (fuente de verdad)
@@ -2891,8 +2916,6 @@
         .select('*')
         .eq('id', 1)
         .single();
-
-      console.log('[Configuración] ◀ Respuesta de Supabase (re-lectura post-guardado):', { data: freshCfg, error: fetchError });
       if (fetchError) throw fetchError;
 
       if (freshCfg) {
@@ -2909,8 +2932,6 @@
 
       saveLocalState();
       applySettingsToUI();
-
-      console.log('[Configuración] ✔ Guardado y sincronización con la nube confirmados con éxito.');
       logAudit('configuracion', 'success', 'Parámetros del sistema actualizados y sincronizados con la nube');
       showToast('Configuración guardada y sincronizada', 'success');
 
@@ -3211,19 +3232,12 @@
 
     try {
       // Se lee únicamente desde la tabla "suggestions" ya existente, con la misma conexión del panel
-      console.log('[Sugerencias] ▶ Consultando Supabase → tabla "suggestions" (select *)...');
       const { data, error } = await supabaseClient.from('suggestions').select('*').order('created_at', { ascending: false });
-      console.log('[Sugerencias] ◀ Respuesta de Supabase:', { count: data ? data.length : 0, data, error });
       if (error) throw error;
       sugState.items = data || [];
       sugState.loaded = true;
       sugState.page = 1;
       sugState.loading = false;
-      if (!data || data.length === 0) {
-        console.warn('[Sugerencias] La consulta no devolvió filas y tampoco hubo error. Esto casi siempre significa que falta una policy RLS de SELECT para el rol "anon" en la tabla "suggestions" (solo existe la de INSERT).');
-      } else {
-        console.log('[Sugerencias] ✔ ' + data.length + ' sugerencia(s) cargada(s) correctamente.');
-      }
       renderSugerenciasTable();
     } catch(e) {
       console.error('[Sugerencias] ✘ Error completo al cargar sugerencias:', e);
